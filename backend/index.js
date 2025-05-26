@@ -4,7 +4,6 @@ const dotenv = require('dotenv')
 const helmet = require('helmet')
 const cors = require('cors')
 const cookiesParser = require('cookie-parser')
-const ngrok = require('ngrok')
 const path = require('path');
 
 dotenv.config()
@@ -54,11 +53,5 @@ app.use('/api/data',dataRouter)
 // const wss = new Websocket.Server({server});
 // wss.on('connection', handleConnection);
 app.listen(PORT, () => {
-    console.log(`Localhost running on: http://localhost:${PORT}`); // Log the local server URL
-    // Connect to ngrok to expose the server publicly
-    ngrok.connect(PORT).then(ngrokUrl => {
-        console.log(`Ngrok tunnel in: ${ngrokUrl}`); // Log the ngrok URL once the tunnel is established
-    }).catch(error => {
-        console.log(`Couldn't tunnel ngrok: ${error}`); // Log an error if ngrok fails to start
+    console.log(`Localhost running on: http://localhost:${PORT}`);
     });
-});
