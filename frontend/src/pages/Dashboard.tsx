@@ -191,10 +191,13 @@ const Dashboard = () => {
       const sendTime = inspectionDate.toLocaleTimeString();
       const doneDate = inspectionDate.toLocaleDateString();
       const doneTime = inspectionDate.toLocaleTimeString();
-      const inspe = inspectionDetails?.inspection.responses
-      ?.map(r => `${r.questionId}:${r.passed ? 'Yes' : 'No'}`)
-      .join('; ') ?? ''
-
+      const inspe = inspection.responses
+      ?.map(r => {
+        const question = section?.questions.find(q => q.id === r.questionId);
+        const questionText = question?.text || `Question ID: ${r.questionId}`;
+        return `${questionText}: ${r.passed ? 'Yes' : 'No'}`;
+      })
+      .join('; ') ?? '';
       return {
         Employee: employeeName,
         SentDate: sentDate,
