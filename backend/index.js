@@ -5,7 +5,6 @@ const helmet = require('helmet')
 const cors = require('cors')
 const cookiesParser = require('cookie-parser')
 const path = require('path');
-const ngrok = require('ngrok');
 
 dotenv.config()
 
@@ -55,10 +54,4 @@ app.use('/api/data',dataRouter)
 // wss.on('connection', handleConnection);
 app.listen(PORT, async () => {
     console.log(`Localhost running on: http://localhost:${PORT}`);
-        try {
-        const url = await ngrok.connect(PORT);
-        console.log(`🔗 Public URL: ${url}`);
-    } catch (err) {
-        console.error('Ngrok failed to start:', err);
-    }
     });
