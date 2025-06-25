@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
-import image from '../../assets/logo.jpg'
+import image from '../../assets/heyopey.jpg'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -20,7 +20,7 @@ const navItems = [
   { path: '/employees', label: 'Employees', icon: <Users size={20} /> },
   { path: '/qr-codes', label: 'QR Codes', icon: <QrCode size={20} /> },
   { path: '/whatsapp-messages', label: 'WhatsApp Messages', icon: <MessageSquare size={20} /> },
-  { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
+  // { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
 ];
 
 interface SidebarProps {
@@ -32,10 +32,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     <aside className="h-full bg-white border-r border-gray-200 flex flex-col">
       <div className="flex items-center justify-between px-6 h-16 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="text-white p-1.5 rounded">
-            <img className='w-10' src={image} alt="logo" />
+          <div className="text-white w-[100%] p-1.5 rounded items-center">
+            <img className='w-[70%]' src={image} alt="logo" />
           </div>
-          <span className="text-xl font-bold text-gray-900">HEYOPIE</span>
         </div>
         {onClose && (
           <Button

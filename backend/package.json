@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ngrok/ngrok": "^1.4.1",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
@@ -24,6 +23,7 @@
     "multer": "^2.0.0",
     "ngrok": "^5.0.0-beta.2",
     "nodemailer": "^6.10.0",
+    "pm2": "^6.0.6",
     "ws": "^8.18.2"
   }
 }

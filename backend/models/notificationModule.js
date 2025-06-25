@@ -31,6 +31,10 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     required: true,
     match: /^([01]\d|2[0-3]):([0-5]\d)$/ // Matches HH:mm format (24-hour)
+  },
+  timeZone: {
+    type: String,
+    required: true,
   }
 });
 

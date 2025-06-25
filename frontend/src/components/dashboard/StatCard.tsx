@@ -33,7 +33,7 @@ export const StatCard = ({
               {value}
             </p>
             
-            {trend && (
+            {/* {trend && (
               <div className="flex items-center mt-2">
                 {trend.positive ? (
                   <ArrowUpRight size={16} className="text-success mr-1" />
@@ -47,7 +47,7 @@ export const StatCard = ({
                   {trend.value}% from last week
                 </span>
               </div>
-            )}
+            )} */}
           </div>
           
           <div className="p-3 rounded-lg bg-gray-100">

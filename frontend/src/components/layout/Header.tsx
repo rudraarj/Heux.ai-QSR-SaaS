@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Bell, Plus, Download } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProfileMenu } from './ProfileMenu';
+import person from '../../assets/person.jpg'
 
 const pathToTitle: Record<string, string> = {
   '/': 'Dashboard',
@@ -38,7 +39,7 @@ export const Header = () => {
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               >
                 <img 
-                  src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" 
+                  src={person} 
                   alt="Profile" 
                   className="w-full h-full object-cover"
                 />

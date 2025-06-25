@@ -6,7 +6,8 @@ import {
   Download,
   Filter,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Calendar
 } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard';
 import { Button } from '../components/ui/Button';
@@ -33,8 +34,19 @@ const Dashboard = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>('all');
   const [selectedSection, setSelectedSection] = useState<string>('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState<TimeRange>('daily');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
   const [selectedInspection, setSelectedInspection] = useState<string | null>(null);
+
+  // Set default date range to current month
+  React.useEffect(() => {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    setFromDate(firstDayOfMonth.toISOString().split('T')[0]);
+    setToDate(lastDayOfMonth.toISOString().split('T')[0]);
+  }, []);
 
   const availableSections = selectedRestaurant === 'all' 
     ? sections 
@@ -46,21 +58,25 @@ const Dashboard = () => {
     return matchesRestaurant && matchesSection;
   });
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday as start
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  
-  const isWithinRange = (dateStr: string) => {
+  const isWithinDateRange = (dateStr: string) => {
+    if (!fromDate && !toDate) return true;
+    
     const date = new Date(dateStr);
-    if (timeRange === 'daily') {
-      return date >= startOfToday;
-    } else if (timeRange === 'weekly') {
-      return date >= startOfWeek;
-    } else if (timeRange === 'monthly') {
-      return date >= startOfMonth;
+    const from = fromDate ? new Date(fromDate) : null;
+    const to = toDate ? new Date(toDate) : null;
+    
+    // Set time to start of day for from date and end of day for to date
+    if (from) from.setHours(0, 0, 0, 0);
+    if (to) to.setHours(23, 59, 59, 999);
+    
+    if (from && to) {
+      return date >= from && date <= to;
+    } else if (from) {
+      return date >= from;
+    } else if (to) {
+      return date <= to;
     }
+    
     return true;
   };
   
@@ -69,7 +85,7 @@ const Dashboard = () => {
     const matchesRestaurant = selectedRestaurant === 'all' || section?.restaurantId === selectedRestaurant;
     const matchesSection = selectedSection === 'all' || inspection.sectionId === selectedSection;
     const matchesEmployee = selectedEmployee === 'all' || inspection.employeeId === selectedEmployee;
-    const matchesDate = isWithinRange(inspection.date);
+    const matchesDate = isWithinDateRange(inspection.date);
     return matchesRestaurant && matchesSection && matchesEmployee && matchesDate;
   });
 
@@ -83,17 +99,31 @@ const Dashboard = () => {
     { name: 'Needs Attention', value: totalAttention, color: '#f59e0b' },
   ];
 
+  // Determine trend data grouping based on date range
+  const getDateRangeInDays = () => {
+    if (!fromDate || !toDate) return 30; // default
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const diffTime = Math.abs(to.getTime() - from.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   const formatTrendKey = (date: Date) => {
-    if (timeRange === 'daily') {
-      return date.getHours().toString().padStart(2, '0') + ':00'; // 24hr format e.g. 14:00
+    const rangeDays = getDateRangeInDays();
+    
+    if (rangeDays <= 1) {
+      // Hourly grouping for single day
+      return date.getHours().toString().padStart(2, '0') + ':00';
+    } else if (rangeDays <= 7) {
+      // Daily grouping for week or less
+      return date.toISOString().split('T')[0];
+    } else {
+      // Weekly grouping for longer periods
+      const startOfWeek = new Date(date);
+      startOfWeek.setDate(date.getDate() - date.getDay());
+      return startOfWeek.toISOString().split('T')[0];
     }
-    if (timeRange === 'weekly') {
-      return date.toISOString().split('T')[0]; // yyyy-mm-dd
-    }
-    if (timeRange === 'monthly') {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    }
-    return '';
   };
   
   const trendMap = new Map<string, { passed: number; attention: number }>();
@@ -115,13 +145,13 @@ const Dashboard = () => {
   const trendData = Array.from(trendMap.entries())
     .map(([key, value]) => ({ date: key, ...value }))
     .sort((a, b) => {
-      // Custom sort: for daily (hours), sort numerically; otherwise by date
-      if (timeRange === 'daily') {
+      const rangeDays = getDateRangeInDays();
+      if (rangeDays <= 1) {
+        // Sort by hour
         return parseInt(a.date) - parseInt(b.date);
       }
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
-  
 
   const getRestaurantName = (restaurantId: string) => {
     const restaurant = restaurants.find(r => r.id === restaurantId);
@@ -148,58 +178,60 @@ const Dashboard = () => {
     return { inspection, section };
   };
 
-const handleExportReport = () => {
-  const exportData = filteredInspections.map((inspection) => {
-    const section = sections.find(s => s.id === inspection.sectionId);
-    const restaurantName = getRestaurantName(section?.restaurantId || '');
-    const sectionName = getSectionName(inspection.sectionId);
-    const employeeName = getEmployeeName(inspection.employeeId);
-    const inspectionDetails = getInspectionDetails(inspection.id);
+  const handleExportReport = () => {
+    const exportData = filteredInspections.map((inspection) => {
+      const section = sections.find(s => s.id === inspection.sectionId);
+      const restaurantName = getRestaurantName(section?.restaurantId || '');
+      const sectionName = getSectionName(inspection.sectionId);
+      const employeeName = getEmployeeName(inspection.employeeId);
+      const inspectionDetails = getInspectionDetails(inspection.id);
 
-    const inspectionDate = new Date(inspection.date);
-    const sentDate = inspectionDate.toLocaleDateString();
-    const sendTime = inspectionDate.toLocaleTimeString();
-    const doneDate = inspectionDate.toLocaleDateString();
-    const doneTime = inspectionDate.toLocaleTimeString();
-    const inspe = inspectionDetails?.inspection.responses
-    ?.map(r => `${r.questionId}:${r.passed ? 'Yes' : 'No'}`)
-    .join('; ') ?? ''
+      const inspectionDate = new Date(inspection.date);
+      const sentDate = inspectionDate.toLocaleDateString();
+      const sendTime = inspectionDate.toLocaleTimeString();
+      const doneDate = inspectionDate.toLocaleDateString();
+      const doneTime = inspectionDate.toLocaleTimeString();
+      const inspe = inspectionDetails?.inspection.responses
+      ?.map(r => `${r.questionId}:${r.passed ? 'Yes' : 'No'}`)
+      .join('; ') ?? ''
 
-    return {
-      Employee: employeeName,
-      SentDate: sentDate,
-      SendTime: sendTime,
-      DoneDate: doneDate,
-      DoneTime: doneTime,
-      Restaurant: restaurantName,
-      Section: sectionName,
-      Status: inspection.status === 'passed' ? 'Passed' : 'Needs Attention',
-      Responses: inspe,
-    }
-  });
+      return {
+        Employee: employeeName,
+        SentDate: sentDate,
+        SendTime: sendTime,
+        DoneDate: doneDate,
+        DoneTime: doneTime,
+        Restaurant: restaurantName,
+        Section: sectionName,
+        Status: inspection.status === 'passed' ? 'Passed' : 'Needs Attention',
+        Responses: inspe,
+      }
+    });
 
-  const csvContent =
-    'data:text/csv;charset=utf-8,' +
-    [
-      Object.keys(exportData[0]).join(','), // headers
-      ...exportData.map(row => Object.values(row).join(',')), // rows
-    ].join('\n');
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [
+        Object.keys(exportData[0]).join(','), // headers
+        ...exportData.map(row => Object.values(row).join(',')), // rows
+      ].join('\n');
 
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', 'inspection_report.csv');
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'inspection_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
 
   return (
     <div className="space-y-6 animate-fade-in">
       <Card className="bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Restaurant Filter */}
             <div className="flex items-center">
               <Filter size={16} className="text-gray-500 mr-2" />
               <select
@@ -220,6 +252,7 @@ const handleExportReport = () => {
               </select>
             </div>
 
+            {/* Section Filter */}
             <div className="flex items-center">
               <select
                 className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
@@ -239,6 +272,7 @@ const handleExportReport = () => {
               </select>
             </div>
 
+            {/* Employee Filter */}
             <div className="flex items-center">
               <select
                 className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
@@ -255,29 +289,34 @@ const handleExportReport = () => {
               </select>
             </div>
 
-            <div className="flex items-center space-x-2 bg-white rounded-lg">
-              <Button 
-                size="sm" 
-                variant={timeRange === 'daily' ? 'primary' : 'ghost'}
-                onClick={() => setTimeRange('daily')}
-              >
-                Today
-              </Button>
-              <Button 
-                size="sm" 
-                variant={timeRange === 'weekly' ? 'primary' : 'ghost'}
-                onClick={() => setTimeRange('weekly')}
-              >
-                This Week
-              </Button>
-              <Button 
-                size="sm" 
-                variant={timeRange === 'monthly' ? 'primary' : 'ghost'}
-                onClick={() => setTimeRange('monthly')}
-              >
-                This Month
-              </Button>
+            {/* From Date */}
+            <div className="flex items-center">
+              <Calendar size={16} className="text-gray-500 mr-2" />
+              <div className="flex flex-col flex-1">
+                <label className="text-xs text-gray-500 mb-1">From</label>
+                <input
+                  type="date"
+                  className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
             </div>
+
+            {/* To Date */}
+            <div className="flex items-center">
+              <div className="flex flex-col flex-1">
+                <label className="text-xs text-gray-500 mb-1">To</label>
+                <input
+                  type="date"
+                  className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+
           </div>
         </CardContent>
       </Card>
@@ -349,37 +388,37 @@ const handleExportReport = () => {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
-  <CartesianGrid strokeDasharray="3 3" />
-  <XAxis 
-    dataKey="date" 
-    tickFormatter={(value) => {
-      if (timeRange === 'daily') {
-        const hour = parseInt(value.split(':')[0]);
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const hour12 = hour % 12 || 12;
-        return `${hour12} ${period}`; // e.g. 2 PM
-      }
-      return new Date(value).toLocaleDateString(); // For weekly/monthly
-    }}
-  />
-  <YAxis />
-  <Tooltip />
-  <Legend />
-  <Line 
-    type="monotone" 
-    dataKey="passed" 
-    stroke="#10b981" 
-    name="Passed"
-  />
-  <Line 
-    type="monotone" 
-    dataKey="attention" 
-    stroke="#f59e0b" 
-    name="Needs Attention"
-  />
-</LineChart>
-
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => {
+                      const rangeDays = getDateRangeInDays();
+                      if (rangeDays <= 1) {
+                        const hour = parseInt(value.split(':')[0]);
+                        const period = hour >= 12 ? 'PM' : 'AM';
+                        const hour12 = hour % 12 || 12;
+                        return `${hour12} ${period}`;
+                      }
+                      return new Date(value).toLocaleDateString();
+                    }}
+                  />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="passed" 
+                    stroke="#10b981" 
+                    name="Passed"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="attention" 
+                    stroke="#f59e0b" 
+                    name="Needs Attention"
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>

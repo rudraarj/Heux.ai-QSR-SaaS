@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import person from '../../assets/person.jpg'
 
 interface ProfileMenuProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
             <div className="relative">
               <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200">
                 <img 
-                  src={profileImage} 
+                  src={person} 
                   alt="Profile" 
                   className="w-full h-full object-cover"
                 />
@@ -107,7 +108,7 @@ export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
               />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">John Doe</h3>
+              <h3 className="font-medium text-gray-900">Test Account</h3>
               <p className="text-sm text-gray-500">Administrator</p>
             </div>
           </div>
@@ -115,7 +116,7 @@ export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
 
         <div className="border-t border-gray-200 p-2">
           <div className="space-y-1">
-            <Button
+            {/* <Button
               variant="ghost"
               size="sm"
               className="w-full justify-start"
@@ -130,7 +131,7 @@ export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
               icon={<Mail size={16} />}
             >
               Update Email
-            </Button>
+            </Button> */}
             <Button
               variant="ghost"
               size="sm"

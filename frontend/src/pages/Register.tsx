@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { reload } from 'vite-plugin-ssr/client/router'
-import logo from '../assets/logo.jpg'
+import logo from '../assets/heyopey.jpg'
 
 const AuthCard: React.FC = () => {
   const navigate = useNavigate();
@@ -71,15 +71,10 @@ const AuthCard: React.FC = () => {
   return (
     <div className='w-dvw h-dvh flex justify-center items-center'>
     <div className="max-w-sm w-full mx-auto bg-white p-6 rounded-lg shadow-md">
-      <div className='w-[100%] flex justify-center items-center flex-col'>
-      <img className='w-14 items-center' src={logo} alt="logo" />
-      <h2 className="text-2xl font-semibold mb-2 text-black">Welcome Back!</h2>
+      <div className='w-[100%] flex justify-center items-center flex-col mb-3'>
+      <img className='w-[60%] items-center' src={logo} alt="logo" />
+      {/* <h2 className="text-2xl font-semibold mb-2 text-black">Welcome Back!</h2> */}
       </div>
-      {/* <h2 className="text-2xl font-bold mb-2 text-black">Login</h2> */}
-
-      {/* <p className="text-sm text-gray-600 mb-4">
-        Enter your email below to login to your account
-      </p> */}
 
       <div className="mb-4">
         <label className="block text-sm font-semibold mb-1">Email</label>

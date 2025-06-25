@@ -1,10 +1,9 @@
-const express = require('express')
-const whatsappController = require('../constrollers/whatsappController')
+// const express = require('express')
+// const whatsappController = require('../constrollers/whatsappController')
 
-const router = express.Router()
+// const router = express.Router()
 
 // router.get('/webhook',whatsappController.getWebhook)
-// router.get('/surveydata',whatsappController.surveydata)
 // router.post('/webhook',whatsappController.conversationWebhook)
 
-module.exports = router
+// module.exports = router

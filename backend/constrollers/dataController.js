@@ -1,10 +1,22 @@
-const {addrestaurantSchema,addrecipientSchema, addsectionSchema, addquestionSchema, updaterecipientSchema } = require("../middlewares/validator")
+const {addrestaurantSchema,addrecipientSchema, addsectionSchema, addquestionSchema, updaterecipientSchema, updateQuestionSchema } = require("../middlewares/validator")
 const employeesModule = require("../models/employeesModule")
 const inspectionsModule = require("../models/inspectionsModule")
 const notificationModule = require("../models/notificationModule")
 const restaurantModule = require("../models/restaurantModule")
 const sectionModule = require("../models/sectionModule")
+const axios = require('axios'); 
 
+exports.getWebhook = (req,res)=>{
+    const mode = req.query['hub.mode']
+    const challenge = req.query['hub.challenge']
+    const token = req.query['hub.verify_token']
+  
+    if (mode && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+      res.status(200).send(challenge)
+    } else {
+      res.sendStatus(403)
+    }
+}
 
 exports.fetchdata = async(req,res)=>{
 const userId = req.userId
@@ -31,6 +43,7 @@ const userId = req.userId
 exports.inspectionRec = async(req,res) =>{
     try {
         const data = req.body
+        console.log(data)
         const userId = req.userId
         const checkboxKey = Object.keys(data).find(key => key.startsWith("section"));
         const optionsArray = data[checkboxKey];
@@ -72,7 +85,7 @@ exports.inspectionRec = async(req,res) =>{
                  responses
               })
               await inspData.save();
-              const result = inspectionsModule.find({userId:userId,})
+              const result = await inspectionsModule.find({userId:userId,})
               return res.status(201).json({
                   success:true,
                   message:'Your inspection has been created',
@@ -82,7 +95,7 @@ exports.inspectionRec = async(req,res) =>{
     } catch (error) {
         return res.status(400).json({
             success:false,
-            message:'some thing went wrong',
+            message:"some thing want wrong",
             error
         })
     }
@@ -266,7 +279,7 @@ exports.addquestions = async(req,res)=>{
 
 exports.newNotification = async (req,res)=>{
     try {
-        const {frequency,id,isActive,restaurantId,sectionId,time} = req.body;
+        const {frequency,id,isActive,restaurantId,sectionId,time,timeZone} = req.body;
         const userId = req.userId
         const exisitingNotification = await notificationModule.findOne({id})
         if(exisitingNotification){
@@ -278,7 +291,7 @@ exports.newNotification = async (req,res)=>{
         }
 
         const newNotification = new notificationModule({
-            frequency,id,userId:userId,isActive,restaurantId,sectionId,time
+            frequency,id,userId:userId,isActive,restaurantId,sectionId,time,timeZone
               })
         await newNotification.save();
         const allNotification = await notificationModule.find({userId:userId,})
@@ -341,5 +354,185 @@ exports.updateEmployee = async(req,res)=>{
             message:'some thing went wrong in notification',
             error
         })  
+    }
+}
+
+exports.updatequestion = async (req, res) => {
+     try {
+        const { id, text, sectionId } = req.body;
+        
+        // Validate the input (assuming you have an updateQuestionSchema)
+        const { value, error } = updateQuestionSchema.validate({ id, text, sectionId });
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Something went wrong',
+                error
+            });
+        }
+
+        // Update the specific question in the questions array
+        const updatedSection = await sectionModule.findOneAndUpdate(
+            { 
+                id: sectionId,
+                "questions.id": id  // Find the section and the specific question
+            },
+            { 
+                $set: { 
+                    "questions.$.text": text  // Update only the text field of the matched question
+                }
+            },
+            { new: true }
+        );
+
+        // Check if the section was found and updated
+        if (!updatedSection) {
+            return res.status(404).json({
+                success: false,
+                message: 'Section or question not found'
+            });
+        }
+
+        const questions = updatedSection.questions;
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Question updated successfully',
+            questions
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Something went wrong',
+            error
+        });
+    }
+};
+
+exports.triggerNotification = async (req,res)=>{
+     try {
+        const { sectionId } = req.body;
+        const userId = req.userId;
+
+        // Validate required fields
+        if (!sectionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Section ID is required'
+            });
+        }
+
+        // Find all employees assigned to this section and get phone numbers and names
+        const employees = await employeesModule.find({
+            sectionIds: { $in: [sectionId] } // Since sectionIds is an array
+        }).select('whatsappNumber name');
+
+        // Extract employee data (phone numbers and names)
+        const employeeData = employees
+            .filter(employee => employee.whatsappNumber && employee.name) // Remove any null/undefined values
+            .map(employee => ({
+                phoneNumber: employee.whatsappNumber,
+                name: employee.name
+            }));
+
+        // If no employees found for this section
+        if (employeeData.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'No employees assigned to this section',
+                employees: []
+            });
+        }
+
+ // Webhook URL
+        const webhookUrl = 'https://graph.facebook.com/v19.0/715935278261566/messages';
+        
+        // Trigger webhook for each employee
+        const webhookResults = [];
+        
+        for (const employee of employeeData) {
+            try {
+                const webhookPayload = {
+                    messaging_product: "whatsapp",
+                    to: employee.phoneNumber,
+                    type: "template",
+                    template: {
+                        name: "feedbackform",
+                        language: {
+                            code: "en"
+                        },
+                        components: [
+                            {
+                                type: "button",
+                                sub_type: "flow",
+                                index: "0",
+                                parameters: [
+                                    {
+                                        type: "text",
+                                        text: "feedbackform"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                };
+
+                const response = await axios({
+                    url: webhookUrl,
+                    method: 'post',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: webhookPayload
+                });
+
+    webhookResults.push({
+      phoneNumber: employee.phoneNumber,
+      name: employee.name,
+      status: 'success',
+      response: response.status
+    });
+
+                console.log(`Webhook triggered successfully for ${employee.name} (${employee.phoneNumber})`);
+                
+                // Optional: Add delay between requests to avoid rate limiting
+                 await new Promise(resolve => setTimeout(resolve, 100));
+                
+            } catch (error) {
+                console.error(`Failed to trigger webhook for ${employee.name} (${employee.phoneNumber}):`, error.message);
+                webhookResults.push({
+                    phoneNumber: employee.phoneNumber,
+                    name: employee.name,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+
+        // Count successful and failed requests
+        const successful = webhookResults.filter(result => result.status === 'success').length;
+        const failed = webhookResults.filter(result => result.status === 'failed').length;
+
+        return res.status(200).json({
+            success: true,
+            message: `Notifications triggered for ${employeeData.length} employee(s)`,
+            summary: {
+                total: employeeData.length,
+                successful: successful,
+                failed: failed
+            },
+            employees: employeeData,
+            webhookResults: webhookResults
+        });
+
+    } catch (error) {
+        console.error('Error in triggerNotification:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Something went wrong in notification',
+            error: error.message
+        });
     }
 }

@@ -88,16 +88,7 @@ exports.sendList = async (to)=>{
                     title: 'Fryer',
                   }
                 ]
-              },
-            //   {
-            //     title: 'Second Section',
-            //     rows: [
-            //       {
-            //         id: 'third_option',
-            //         title: 'Third option'
-            //       }
-            //     ]
-            //   }
+              }
             ]
           }
         }

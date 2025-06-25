@@ -5,13 +5,14 @@ const helmet = require('helmet')
 const cors = require('cors')
 const cookiesParser = require('cookie-parser')
 const path = require('path');
+const ngrok = require('ngrok');
 
 dotenv.config()
 
 const PORT = process.env.PORT || 3200
 
 const authRouter = require('./routers/authRouter')
-const whatsappRouter = require('./routers/whatsappRouter')
+// const whatsappRouter = require('./routers/whatsappRouter')
 const dataRouter = require('./routers/dataRouter')
 // const Websocket = require('ws')
 // const http = require('http')
@@ -52,6 +53,12 @@ app.use('/api/data',dataRouter)
 // const server = http.createServer(app);
 // const wss = new Websocket.Server({server});
 // wss.on('connection', handleConnection);
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Localhost running on: http://localhost:${PORT}`);
+        try {
+        const url = await ngrok.connect(PORT);
+        console.log(`🔗 Public URL: ${url}`);
+    } catch (err) {
+        console.error('Ngrok failed to start:', err);
+    }
     });

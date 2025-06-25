@@ -19,9 +19,11 @@ interface DashboardContextType {
   addSection: (section: Omit<Section, 'id'>) => void;
   updateSection: (id: string, section: Partial<Section>) => void;
   deleteSection: (id: string) => void;
+  updateQuestion: (sectionId: string, questionId: string, updatedQuestion: any) => Promise<void>; // Add this
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
+
 //all fetch data here for dashboard
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
@@ -270,6 +272,68 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setSections(sections.filter((section) => section.id !== id));
   };
 
+  // Add the updateQuestion function
+  const updateQuestion = async (sectionId: string, questionId: string, updatedQuestion: any) => {
+    try {
+      const questionData = {
+        id: questionId,
+        text: updatedQuestion.text,
+        sectionId: sectionId,
+        idealAnswer: updatedQuestion.idealAnswer,
+      };
+
+      const resp = await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}api/data/updatequestion`, 
+        questionData, 
+        {
+          withCredentials: true,
+        }
+      );
+      
+      if (resp.data.success) {
+        // Update the section with the new questions array from the backend response
+        setSections(sections.map(section => 
+          section.id === sectionId 
+            ? { ...section, questions: resp.data.questions }
+            : section
+        ));
+        
+        toast.success('Question Updated!', {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+        });
+      } else {
+        toast.error(resp.data.message, {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+        });
+      }
+    } catch (error) {
+      toast.error(`Something went wrong ${error}`, {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+      });
+    }
+  };
+
   return (
     <DashboardContext.Provider
       value={{
@@ -286,6 +350,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         addSection,
         updateSection,
         deleteSection,
+        updateQuestion, // Add this to the context value
       }}
     >
       {children}

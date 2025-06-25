@@ -55,7 +55,7 @@ const QRCodes = () => {
     const restaurant = restaurants.find(r => r.id === section?.restaurantId);
     console.log(restaurant?.location)
     // https://api.whatsapp.com/send?phone=919935391074&text=Tim+Hortons+Canada%3A+Start+Soup+and+Sandwich+Inspection
-    return `https://api.whatsapp.com/send?phone=919935391074&text=${
+    return `https://api.whatsapp.com/send?phone=16476912142&text=${
       encodeURIComponent(restaurant?.name || 'Restaurant')
     }+${encodeURIComponent(restaurant?.location || 'location')}+%3A+Start+${
       encodeURIComponent(section?.name || 'Section')
