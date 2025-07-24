@@ -208,8 +208,53 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
    
   };
 
-  const deleteEmployee = (id: string) => {
-    setEmployees(employees.filter((employee) => employee.id !== id));
+  const deleteEmployee = async (id: string) => {
+    try {
+      const resp = await axios.delete(
+  `${import.meta.env.VITE_BACKEND_URL}api/data/deleteEmployee`,
+  {
+    withCredentials: true,
+    data: { id }, // send id in request body
+  }
+);
+      if(resp.data.success){
+        // setSections(resp.data.allSection);
+        setEmployees(resp.data.allEmployee);
+        toast.success('employee deleted successfully!', {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          });
+      }else{
+        toast.error(resp.data.message, {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          });
+      }
+    } catch (error) {
+      toast.error('something want wrong', {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        });
+    }
+    
   };
 
   const addSection = async(section: Omit<Section, 'id'>) => {
@@ -268,8 +313,52 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const deleteSection = (id: string) => {
-    setSections(sections.filter((section) => section.id !== id));
+  const deleteSection = async (id: string) => {
+    try {
+      const resp = await axios.delete(
+        `${import.meta.env.VITE_BACKEND_URL}api/data/deleteSection`,
+        {
+          withCredentials: true,
+          data: { id }, // send id in request body
+        }
+      );
+      if(resp.data.success){
+        // setSections(resp.data.allSection);
+        setSections(resp.data.allSection);
+        toast.success('section deleted successfully!', {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          });
+      }else{
+        toast.error(resp.data.message, {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          });
+      }
+    } catch (error) {
+      toast.error('something want wrong', {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        });
+    }
   };
 
   // Add the updateQuestion function

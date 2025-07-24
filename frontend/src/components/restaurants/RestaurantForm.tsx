@@ -82,30 +82,9 @@ export const RestaurantForm = ({ onSubmit, onCancel, initialData, title }: Resta
               <p className="mt-1 text-sm text-danger">{errors.location.message}</p>
             )}
           </div>
-
-          {/* <div>
-            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-              Image URL
-            </label>
-            <input
-              id="image"
-              type="url"
-              {...register('image', { 
-                pattern: {
-                  value: /^https?:\/\/.+/i,
-                  message: 'Must be a valid URL'
-                }
-              })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter image URL"
-            />
-            {errors.image && (
-              <p className="mt-1 text-sm text-danger">{errors.image.message}</p>
-            )}
-          </div> */}
           <div>
   <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-    Upload Image
+    Upload Image (&lt;1MB)
   </label>
   <input
     id="image"

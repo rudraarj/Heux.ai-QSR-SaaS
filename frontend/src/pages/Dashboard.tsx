@@ -49,7 +49,7 @@ const Dashboard = () => {
   }, []);
 
   const availableSections = selectedRestaurant === 'all' 
-    ? sections 
+    ? [] // Only show sections after a restaurant is selected
     : sections.filter(section => section.restaurantId === selectedRestaurant);
 
   const availableEmployees = employees.filter(employee => {
@@ -214,7 +214,7 @@ const Dashboard = () => {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
       [
-        Object.keys(exportData[0]).join(','), // headers
+        Object.keys(exportData[0] || {}).join(','), // headers
         ...exportData.map(row => Object.values(row).join(',')), // rows
       ].join('\n');
 
@@ -227,18 +227,21 @@ const Dashboard = () => {
     document.body.removeChild(link);
   };
 
-
-
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* IMPROVED FILTER SECTION */}
       <Card className="bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+            
             {/* Restaurant Filter */}
-            <div className="flex items-center">
-              <Filter size={16} className="text-gray-500 mr-2" />
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <Filter size={14} className="mr-2 text-gray-500" />
+                Restaurant
+              </label>
               <select
-                className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 value={selectedRestaurant}
                 onChange={(e) => {
                   setSelectedRestaurant(e.target.value);
@@ -256,9 +259,10 @@ const Dashboard = () => {
             </div>
 
             {/* Section Filter */}
-            <div className="flex items-center">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Section</label>
               <select
-                className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 value={selectedSection}
                 onChange={(e) => {
                   setSelectedSection(e.target.value);
@@ -276,9 +280,10 @@ const Dashboard = () => {
             </div>
 
             {/* Employee Filter */}
-            <div className="flex items-center">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Employee</label>
               <select
-                className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
                 disabled={selectedRestaurant === 'all' && selectedSection === 'all'}
@@ -293,33 +298,29 @@ const Dashboard = () => {
             </div>
 
             {/* From Date */}
-            <div className="flex items-center">
-              <Calendar size={16} className="text-gray-500 mr-2" />
-              <div className="flex flex-col flex-1">
-                <label className="text-xs text-gray-500 mb-1">From</label>
-                <input
-                  type="date"
-                  className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
-              </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <Calendar size={14} className="mr-2 text-gray-500" />
+                From
+              </label>
+              <input
+                type="date"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
             </div>
 
             {/* To Date */}
-            <div className="flex items-center">
-              <div className="flex flex-col flex-1">
-                <label className="text-xs text-gray-500 mb-1">To</label>
-                <input
-                  type="date"
-                  className="bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex-1"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
-              </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">To</label>
+              <input
+                type="date"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
             </div>
-
-
           </div>
         </CardContent>
       </Card>
@@ -431,37 +432,37 @@ const Dashboard = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Inspection Report</CardTitle>
-          <Button variant="outline" size="sm" icon={<Download size={16} /> } onClick={handleExportReport} >
+          <Button variant="outline" size="sm" icon={<Download size={16} /> } onClick={handleExportReport} disabled={filteredInspections.length === 0} >
             Export Report
           </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead>
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Employee
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sent Date
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Done Date
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Restaurant
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Section
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Media
                   </th>
-                  <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>

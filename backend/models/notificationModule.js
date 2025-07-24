@@ -1,3 +1,4 @@
+// Updated MongoDB schema with additional fields for tracking
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
@@ -17,7 +18,8 @@ const notificationSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    required: true
+    required: true,
+    default: true
   },
   restaurantId: {
     type: String,
@@ -35,7 +37,22 @@ const notificationSchema = new mongoose.Schema({
   timeZone: {
     type: String,
     required: true,
+    default: 'America/Toronto'
+  },
+  lastTriggered: {
+    type: Date,
+    default: null
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
+}, {
+  timestamps: true // This will automatically manage createdAt and updatedAt
 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

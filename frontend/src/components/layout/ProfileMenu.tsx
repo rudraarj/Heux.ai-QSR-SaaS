@@ -13,7 +13,7 @@ interface ProfileMenuProps {
 
 export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
     const navigate = useNavigate();
-  const [profileImage, setProfileImage] = useState<string>("https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1");
+  const [profileImage, setProfileImage] = useState<string>("https://img.freepik.com/premium-vector/avatar-guest-vector-icon-illustration_1304166-97.jpg?semt=ais_hybrid&w=740");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

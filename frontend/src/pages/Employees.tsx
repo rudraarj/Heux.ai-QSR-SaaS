@@ -43,7 +43,7 @@ const Employees =() => {
     const newEmployee = {
       ...data,
       employeeId: `EMP${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-      image: 'https://static-00.iconduck.com/assets.00/profile-circle-icon-512x512-zxne30hp.png'
+      image: 'https://img.freepik.com/premium-vector/avatar-guest-vector-icon-illustration_1304166-97.jpg?semt=ais_hybrid&w=740'
     };
     addEmployee(newEmployee);
     setShowAddForm(false);
@@ -70,7 +70,7 @@ const Employees =() => {
       {/* Search and filter */}
       <Card className="bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search size={20} className="text-gray-400" />

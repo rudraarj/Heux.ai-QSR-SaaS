@@ -103,7 +103,7 @@ const RestaurantDetails = () => {
         ...data,
         restaurantId: id,
         employeeId: `EMP${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-        image: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+        image: 'https://img.freepik.com/premium-vector/avatar-guest-vector-icon-illustration_1304166-97.jpg?semt=ais_hybrid&w=740'
       };
       addEmployee(newEmployee);
       setShowAddEmployeeForm(false);
@@ -125,6 +125,7 @@ const RestaurantDetails = () => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       deleteEmployee(employeeId);
     }
+
   };
 
   const handleAddQuestion = async () => {
@@ -260,18 +261,64 @@ const RestaurantDetails = () => {
     });
     setShowQuestionForm(true);
   };
+  
+  const handleDeleteQuestion = async (sectionId: string, questionId: string) => {
+  const section = sections.find(s => s.id === sectionId);
+  if (!section) return;
 
-  const handleDeleteQuestion = (sectionId: string, questionId: string) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (!section) return;
+  if (!window.confirm('Are you sure you want to delete this question?')) return;
 
-    if (window.confirm('Are you sure you want to delete this question?')) {
-      updateSection(sectionId, {
-        ...section,
-        questions: section.questions.filter(q => q.id !== questionId),
+  try {
+    const resp = await axios.delete(
+      `${import.meta.env.VITE_BACKEND_URL}api/data/deleteQuestion`,
+      {
+        withCredentials: true,
+        data: {
+          data: {
+            sectionId,
+            questionId,
+          }
+        }
+      }
+    );
+
+    if (resp.data.success) {
+      updateSection(sectionId,resp.data.allquestion); // Update the state with new section data
+      toast.success('Question deleted successfully!', {
+        position: 'bottom-right',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: 'light',
+      });
+    } else {
+      toast.error(resp.data.message, {
+        position: 'bottom-right',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: 'light',
       });
     }
-  };
+  } catch (error) {
+    toast.error('Something went wrong!', {
+      position: 'bottom-right',
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: 'light',
+    });
+  }
+};
   
   if (!restaurant) {
     return (
@@ -433,12 +480,12 @@ const RestaurantDetails = () => {
                             <p className="font-medium text-gray-900">{section.name}</p>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Button 
+                            {/* <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => setEditingSection(section.id)}
                               icon={<Edit size={16} />}
-                            />
+                            /> */}
                             <Button 
                               variant="ghost" 
                               size="sm"
@@ -557,19 +604,6 @@ const RestaurantDetails = () => {
                       >
                         <div className="flex-1 pr-4">
                           <p className="font-medium text-gray-900">{question.text}</p>
-                          <div className="mt-2 flex items-center space-x-2">
-                            <Badge 
-                              variant={question.idealAnswer ? 'success' : 'danger'}
-                              className="flex items-center space-x-1"
-                            >
-                              {question.idealAnswer ? (
-                                <Check size={14} className="mr-1" />
-                              ) : (
-                                <AlertTriangle size={14} className="mr-1" />
-                              )}
-                              <span>Passes when answer is {question.idealAnswer ? '"Yes"' : '"No"'}</span>
-                            </Badge>
-                          </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button
