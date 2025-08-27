@@ -106,7 +106,7 @@ const AuthCard: React.FC = () => {
 
       <p className="text-sm text-center mt-4">
         {/* Don't have an account? <a href="/signup" className="text-black font-semibold underline">Signup</a> */}
-        powered by heux.ai
+        powered by <a href="https://www.huex.ai/">huex.ai</a>
       </p>
     </div>
     </div>
