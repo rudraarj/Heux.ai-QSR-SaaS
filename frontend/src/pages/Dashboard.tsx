@@ -7,7 +7,9 @@ import {
   Filter,
   Eye,
   ExternalLink,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard';
 import { Button } from '../components/ui/Button';
@@ -21,8 +23,8 @@ import {
   ResponsiveContainer,
   Legend,
   Tooltip,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -37,6 +39,10 @@ const Dashboard = () => {
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [selectedInspection, setSelectedInspection] = useState<string | null>(null);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Set default date range to current month
   React.useEffect(() => {
@@ -99,59 +105,66 @@ const Dashboard = () => {
     { name: 'Needs Attention', value: totalAttention, color: '#f59e0b' },
   ];
 
-  // Determine trend data grouping based on date range
-  const getDateRangeInDays = () => {
-    if (!fromDate || !toDate) return 30; // default
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    const diffTime = Math.abs(to.getTime() - from.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  // Generate complete date range for spike chart
+  const generateDateRange = () => {
+    if (!fromDate || !toDate) return [];
+    
+    const dates = [];
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    
+    const current = new Date(start);
+    while (current <= end) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return dates;
   };
 
-  const formatTrendKey = (date: Date) => {
-    const rangeDays = getDateRangeInDays();
+  // Create spike chart data with all dates in range
+  const createSpikeChartData = () => {
+    const dateRange = generateDateRange();
+    const dataMap = new Map();
     
-    if (rangeDays <= 1) {
-      // Hourly grouping for single day
-      return date.getHours().toString().padStart(2, '0') + ':00';
-    } else if (rangeDays <= 7) {
-      // Daily grouping for week or less
-      return date.toISOString().split('T')[0];
-    } else {
-      // Weekly grouping for longer periods
-      const startOfWeek = new Date(date);
-      startOfWeek.setDate(date.getDate() - date.getDay());
-      return startOfWeek.toISOString().split('T')[0];
-    }
-  };
-  
-  const trendMap = new Map<string, { passed: number; attention: number }>();
-  
-  filteredInspections.forEach(inspection => {
-    const date = new Date(inspection.date);
-    const key = formatTrendKey(date);
-    const entry = trendMap.get(key) || { passed: 0, attention: 0 };
-  
-    if (inspection.status === 'passed') {
-      entry.passed += 1;
-    } else if (inspection.status === 'attention') {
-      entry.attention += 1;
-    }
-  
-    trendMap.set(key, entry);
-  });
-  
-  const trendData = Array.from(trendMap.entries())
-    .map(([key, value]) => ({ date: key, ...value }))
-    .sort((a, b) => {
-      const rangeDays = getDateRangeInDays();
-      if (rangeDays <= 1) {
-        // Sort by hour
-        return parseInt(a.date) - parseInt(b.date);
-      }
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    // Initialize all dates with zero values
+    dateRange.forEach(date => {
+      const key = date.toISOString().split('T')[0];
+      dataMap.set(key, { date: key, passed: 0, attention: 0, total: 0 });
     });
+    
+    // Fill in actual inspection data
+    filteredInspections.forEach(inspection => {
+      const dateKey = new Date(inspection.date).toISOString().split('T')[0];
+      const entry = dataMap.get(dateKey);
+      
+      if (entry) {
+        entry.total += 1;
+        if (inspection.status === 'passed') {
+          entry.passed += 1;
+        } else if (inspection.status === 'attention') {
+          entry.attention += 1;
+        }
+      }
+    });
+    
+    return Array.from(dataMap.values()).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  };
+
+  const spikeChartData = createSpikeChartData();
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredInspections.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentInspections = filteredInspections.slice(startIndex, endIndex);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedRestaurant, selectedSection, selectedEmployee, fromDate, toDate, itemsPerPage]);
 
   const getRestaurantName = (restaurantId: string) => {
     const restaurant = restaurants.find(r => r.id === restaurantId);
@@ -225,6 +238,28 @@ const Dashboard = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const getPaginationRange = () => {
+    const range = [];
+    const maxVisible = 5;
+    
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+      range.push(i);
+    }
+    
+    return range;
   };
 
   return (
@@ -387,42 +422,66 @@ const Dashboard = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Inspection Trends</CardTitle>
+            <CardTitle>Inspection Activity Spike Chart</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
+                <AreaChart data={spikeChartData}>
+                  <defs>
+                    <linearGradient id="passedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                    </linearGradient>
+                    <linearGradient id="attentionGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="date" 
                     tickFormatter={(value) => {
-                      const rangeDays = getDateRangeInDays();
-                      if (rangeDays <= 1) {
-                        const hour = parseInt(value.split(':')[0]);
-                        const period = hour >= 12 ? 'PM' : 'AM';
-                        const hour12 = hour % 12 || 12;
-                        return `${hour12} ${period}`;
-                      }
-                      return new Date(value).toLocaleDateString();
+                      return new Date(value).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      });
                     }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
                   />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip 
+                    labelFormatter={(value) => {
+                      return new Date(value).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      });
+                    }}
+                  />
                   <Legend />
-                  <Line 
+                  <Area 
                     type="monotone" 
                     dataKey="passed" 
-                    stroke="#10b981" 
+                    stackId="1"
+                    stroke="#10b981"
+                    fill="url(#passedGradient)"
                     name="Passed"
                   />
-                  <Line 
+                  <Area 
                     type="monotone" 
                     dataKey="attention" 
-                    stroke="#f59e0b" 
+                    stackId="1"
+                    stroke="#f59e0b"
+                    fill="url(#attentionGradient)"
                     name="Needs Attention"
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -432,9 +491,21 @@ const Dashboard = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Inspection Report</CardTitle>
-          <Button variant="outline" size="sm" icon={<Download size={16} /> } onClick={handleExportReport} disabled={filteredInspections.length === 0} >
-            Export Report
-          </Button>
+          <div className="flex items-center space-x-2">
+            <select
+              className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            >
+              <option value={5}>Show 5</option>
+              <option value={10}>Show 10</option>
+              <option value={25}>Show 25</option>
+              <option value={50}>Show 50</option>
+            </select>
+            <Button variant="outline" size="sm" icon={<Download size={16} />} onClick={handleExportReport} disabled={filteredInspections.length === 0}>
+              Export Report
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -468,7 +539,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInspections.map(inspection => {
+                {currentInspections.map(inspection => {
                   const section = sections.find(s => s.id === inspection.sectionId);
                   return (
                     <tr key={inspection.id} className="hover:bg-gray-50">
@@ -522,6 +593,50 @@ const Dashboard = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+              <div className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredInspections.length)} of {filteredInspections.length} results
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  icon={<ChevronLeft size={16} />}
+                >
+                  Previous
+                </Button>
+                
+                {getPaginationRange().map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-1 rounded-md text-sm ${
+                      currentPage === page
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  icon={<ChevronRight size={16} />}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
