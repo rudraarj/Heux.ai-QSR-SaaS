@@ -11,7 +11,12 @@ const AuthCard: React.FC = () => {
     email:'',
     password:'',
   })
-  const onSignin = async () => {
+  
+  const onSignin = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
     try {
       console.log("Logging in user:", user);
   
@@ -32,7 +37,7 @@ const AuthCard: React.FC = () => {
           progress: undefined,
           theme: "light",
         });
-        navigate('/');
+        navigate('/dashboard');
         window.location.reload();
       } else {
         toast.error(resp.data.message || 'Login failed', {
@@ -73,39 +78,38 @@ const AuthCard: React.FC = () => {
     <div className="max-w-sm w-full mx-auto bg-white p-6 rounded-lg shadow-md">
       <div className='w-[100%] flex justify-center items-center flex-col mb-3'>
       <img className='w-[60%] items-center' src={logo} alt="logo" />
-      {/* <h2 className="text-2xl font-semibold mb-2 text-black">Welcome Back!</h2> */}
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-semibold mb-1">Email</label>
-        <input
-          type="email"
-          placeholder="m@example.com"
-          value={user.email} 
-          onChange={(e)=>setUser({...user, email: e.target.value})}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring"
-        />
-      </div>
-
-      <div className="mb-4">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-semibold mb-1">Password</label>
-          {/* <a href="#" className="text-sm text-gray-600">Forgot your password?</a> */}
+      <form onSubmit={onSignin}>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-1">Email</label>
+          <input
+            type="email"
+            placeholder="m@example.com"
+            value={user.email} 
+            onChange={(e)=>setUser({...user, email: e.target.value})}
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring"
+          />
         </div>
-        <input
-          type="password"
-          value={user.password} 
-        onChange={(e)=>setUser({...user, password: e.target.value})}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring"
-        />
-      </div>
 
-      <button onClick={onSignin} className="w-full bg-black text-white py-2 rounded-md font-semibold">
-        Login
-      </button>
+        <div className="mb-4">
+          <div className="flex justify-between items-center">
+            <label className="block text-sm font-semibold mb-1">Password</label>
+          </div>
+          <input
+            type="password"
+            value={user.password} 
+            onChange={(e)=>setUser({...user, password: e.target.value})}
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring"
+          />
+        </div>
+
+        <button type="submit" className="w-full bg-black text-white py-2 rounded-md font-semibold">
+          Login
+        </button>
+      </form>
 
       <p className="text-sm text-center mt-4">
-        {/* Don't have an account? <a href="/signup" className="text-black font-semibold underline">Signup</a> */}
         powered by <a href="https://www.huex.ai/">huex.ai</a>
       </p>
     </div>

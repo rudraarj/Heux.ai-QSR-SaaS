@@ -11,7 +11,7 @@ const pathToTitle: Record<string, string> = {
   '/sections': 'Sections',
   '/employees': 'Employees',
   '/qr-codes': 'QR Codes',
-  '/settings': 'Settings',
+  '/accesscontroller': 'Access Controller',
 };
 
 export const Header = () => {
