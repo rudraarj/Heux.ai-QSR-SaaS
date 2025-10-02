@@ -9,7 +9,7 @@ const FinalCTA = () => {
           Run Your Restaurant the Smarter Way
         </h2>
         <p className="text-xl text-green-100 mb-8 leading-relaxed">
-          Automated inspections, real-time dashboards, and full SOP compliance—all with Opey AI.
+          Automated inspections, real-time dashboards, and full SOP compliance—all with Heyopey.ai.
         </p>
         <a 
           href="https://calendly.com/d/cj7-hm9-t8q/product-overview-and-demo-meeting?month=2025-10" 

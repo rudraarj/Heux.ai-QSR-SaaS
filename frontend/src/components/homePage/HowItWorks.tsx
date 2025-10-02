@@ -18,7 +18,7 @@ const HowItWorks = () => {
     {
       icon: Bell,
       title: "Smart Notifications",
-      description: "Opey AI notifies the right employee at the right time to ensure inspections happen.",
+      description: "Heyopey.ai notifies the right employee at the right time to ensure inspections happen.",
       color: "purple"
     }
   ];
@@ -28,7 +28,7 @@ const HowItWorks = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            How Opey AI Works
+            How Heyopey.ai Works
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Three simple steps to transform your restaurant operations

@@ -11,7 +11,7 @@ const DashboardShowcase = () => {
               Your Restaurant Compliance, At a Glance
             </h2>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Opey AI gives managers a detailed dashboard of inspections, with clear highlights of where attention is needed. Get visibility, accountability, and peace of mind.
+              Heyopey.ai gives managers a detailed dashboard of inspections, with clear highlights of where attention is needed. Get visibility, accountability, and peace of mind.
             </p>
             <div className="space-y-4">
               <div className="flex items-center">
