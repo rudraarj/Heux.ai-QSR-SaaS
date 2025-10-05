@@ -12,7 +12,11 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
+<<<<<<< HEAD
 import image from '../../assets/logo.jpg'
+=======
+import image from '../../assets/heyopey.jpg'
+>>>>>>> 825a50fdf62bfa628f02eca0eede0b10052e9c61
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -20,7 +24,11 @@ const navItems = [
   { path: '/employees', label: 'Employees', icon: <Users size={20} /> },
   { path: '/qr-codes', label: 'QR Codes', icon: <QrCode size={20} /> },
   { path: '/whatsapp-messages', label: 'WhatsApp Messages', icon: <MessageSquare size={20} /> },
+<<<<<<< HEAD
   { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
+=======
+  // { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
+>>>>>>> 825a50fdf62bfa628f02eca0eede0b10052e9c61
 ];
 
 interface SidebarProps {
