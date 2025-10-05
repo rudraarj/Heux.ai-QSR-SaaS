@@ -52,7 +52,6 @@ export interface WhatsAppNotification {
   frequency: 'daily' | 'alternate';
   time: string;
   isActive: boolean;
-  timeZone:string;
 }
 
 export type TimeRange = 'daily' | 'weekly' | 'monthly' | 'custom' | 'lifetime';

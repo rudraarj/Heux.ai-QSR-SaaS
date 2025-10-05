@@ -132,9 +132,3 @@ exports.addquestionSchema = joi.object({
         }),
         sectionId: joi.string().required()
       });
-
-exports.updateQuestionSchema = joi.object({
-    id: joi.string().required(),
-    text: joi.string().required(),
-    sectionId: joi.string().required()
-});

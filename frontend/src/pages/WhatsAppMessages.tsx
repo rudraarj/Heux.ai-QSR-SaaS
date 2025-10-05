@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, MessageSquare, Clock, Calendar, X, Trash2, Filter, MapPin, PlayCircle } from 'lucide-react';
+import { Plus, MessageSquare, Clock, Calendar, X, Power, Trash2, Filter } from 'lucide-react';
 import { useDashboard } from '../contexts/DashboardContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -13,55 +13,7 @@ interface NotificationFormData {
   sectionId: string;
   frequency: 'daily' | 'alternate';
   time: string;
-  timeZone: string;
 }
-
-// Canadian time zones
-const CANADIAN_TIME_ZONES = [
-  { value: 'America/St_Johns', label: 'Newfoundland Time (NT)', offset: 'UTC-3:30' },
-  { value: 'America/Halifax', label: 'Atlantic Time (AT)', offset: 'UTC-4' },
-  { value: 'America/Toronto', label: 'Eastern Time (ET)', offset: 'UTC-5' },
-  { value: 'America/Winnipeg', label: 'Central Time (CT)', offset: 'UTC-6' },
-  { value: 'America/Regina', label: 'Saskatchewan Time (SK)', offset: 'UTC-6' },
-  { value: 'America/Edmonton', label: 'Mountain Time (MT)', offset: 'UTC-7' },
-  { value: 'America/Vancouver', label: 'Pacific Time (PT)', offset: 'UTC-8' },
-  { value: 'America/Whitehorse', label: 'Yukon Time (YT)', offset: 'UTC-8' }
-];
-
-// Helper function to format the next trigger time display
-const formatNextTriggerTime = (notification: WhatsAppNotification): string => {
-  const now = new Date();
-  const [hours, minutes] = notification.time.split(':').map(Number);
-  const timeZone = notification.timeZone || 'America/Toronto';
-  
-  // Get today's date in the notification's timezone
-  const today = new Date(now.toLocaleString("en-US", { timeZone }));
-  today.setHours(hours, minutes, 0, 0);
-  
-  // Check if notification time has passed today
-  const nowInZone = new Date(now.toLocaleString("en-US", { timeZone }));
-  
-  let nextTrigger = new Date(today);
-  
-  // If time has passed today, schedule for tomorrow
-  if (today <= nowInZone) {
-    nextTrigger.setDate(today.getDate() + 1);
-  }
-  
-  
-  // Format the display
-  const timeZoneInfo = CANADIAN_TIME_ZONES.find(tz => tz.value === timeZone);
-  const formattedTime = nextTrigger.toLocaleString('en-US', {
-    timeZone: timeZone,
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${formattedTime} (${timeZoneInfo?.label || 'ET'})`;
-};
 
 const WhatsAppMessages = () => {
   const { restaurants, sections } = useDashboard();
@@ -69,75 +21,55 @@ const WhatsAppMessages = () => {
   const [notifications, setNotifications] = useState<WhatsAppNotification[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>('all');
   const [selectedSection, setSelectedSection] = useState<string>('all');
-  const [schedulerStatus, setSchedulerStatus] = useState<any>(null);
   const [formData, setFormData] = useState<NotificationFormData>({
     restaurantId: '',
     sectionId: '',
     frequency: 'daily',
     time: '09:00',
-    timeZone: 'America/Toronto', // Default to Eastern Time
   });
 
-  // Fetch notifications from backend
-  const fetchNotifications = async () => {
+  const fetchNotification = async () =>{
     try {
-      const resp = await axios.get(`${import.meta.env.VITE_BACKEND_URL}api/data/getnotification`, {
-        withCredentials: true,
-      });
-      const allNotifications = resp.data.allNotification || [];
-      setNotifications(allNotifications);
+      const resp = await axios.get(`${import.meta.env.VITE_BACKEND_URL}api/data/getnotification`,
+        {
+          withCredentials: true,  // Correct option to include cookies
+        });
+      const allNotification = resp.data.allNotification
+      setNotifications(allNotification)
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      toast.error('Failed to fetch notifications');
+      console.log(error);
     }
-  };
-
-  // Manually trigger a notification for testing
-  const triggerNotificationManually = async (notification: WhatsAppNotification) => {
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}api/data/trigger-notification`, {
-        restaurantId: notification.restaurantId,
-        sectionId: notification.sectionId,
-      }, {
-        withCredentials: true,
-      });
-      
-      if (response.data.success) {
-        toast.success(`Notification triggered successfully for ${response.data.summary.total} employee(s)`);
-      } else {
-        toast.error('Failed to trigger notification');
-      }
-    } catch (error) {
-      console.error('Error triggering notification:', error);
-      toast.error('Failed to trigger notification');
-    }
-  };
+  }
 
   const handleCreateNotification = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.restaurantId || !formData.sectionId || !formData.frequency || !formData.time || !formData.timeZone) {
-      toast.warning('Please fill all fields before submitting.', {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-      });
-      return;
-    }
-
+  if (!formData.restaurantId || !formData.sectionId || !formData.frequency || !formData.time) {
+    toast.warning('Please fill all fields before submitting.', {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: false,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
+    });
+    return;
+  }
+    const newNotification: WhatsAppNotification = {
+      id: `notification-${Date.now()}`,
+      ...formData,
+      isActive: true,
+    };
     try {
-      const resp = await axios.post(`${import.meta.env.VITE_BACKEND_URL}api/data/notification`, formData, {
-        withCredentials: true,
-      });
-      
-      if (resp.data.success) {
-        setNotifications(resp.data.allNotification || []);
-        const timeZoneLabel = CANADIAN_TIME_ZONES.find(tz => tz.value === formData.timeZone)?.label || 'Selected Time Zone';
-        toast.success(`New Notification Added for ${timeZoneLabel}! It will be handled by the backend scheduler.`, {
+      const resp = await axios.post(`${import.meta.env.VITE_BACKEND_URL}api/data/notification`,newNotification,
+        {
+          withCredentials: true,  // Correct option to include cookies
+        });
+      const allNotification = resp.data.allNotification
+      if(resp.data.success){
+        setNotifications(allNotification);
+        toast.success('New Notification Added!', {
           position: "bottom-right",
           autoClose: 5000,
           hideProgressBar: false,
@@ -146,80 +78,58 @@ const WhatsAppMessages = () => {
           draggable: true,
           progress: undefined,
           theme: "light",
-        });
-        
-        // Refresh scheduler status
-      } else {
-        toast.error(resp.data.message || 'Failed to create notification');
+          });
+      }else{
+        toast.error(resp.data.message, {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          });
       }
     } catch (error) {
-      console.error('Error creating notification:', error);
-      toast.error('Something went wrong while creating notification');
+      toast.error('something want wrong', {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        });
     }
-    
     setShowCreateForm(false);
     setFormData({
       restaurantId: '',
       sectionId: '',
       frequency: 'daily',
       time: '09:00',
-      timeZone: 'America/Toronto',
     });
   };
 
-  const deleteNotification = async (id: string) => {
+  const toggleNotification = (id: string) => {
+    setNotifications(notifications.map(notification =>
+      notification.id === id
+        ? { ...notification, isActive: !notification.isActive }
+        : notification
+    ));
+  };
+
+  const deleteNotification = (id: string) => {
     if (window.confirm('Are you sure you want to delete this notification?')) {
-      try {
-        const resp = await axios.delete(`${import.meta.env.VITE_BACKEND_URL}api/data/notification/${id}`, {
-          withCredentials: true,
-        });
-        
-        if (resp.data.success) {
-          setNotifications(resp.data.allNotification || []);
-          toast.success('Notification deleted successfully', {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-      });
-          
-        } else {
-          toast.error(resp.data.message || 'Failed to delete notification', {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-      });
-        }
-      } catch (error) {
-        console.error('Error deleting notification:', error);
-        toast.error('Failed to delete notification', {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-      });
-      }
+      setNotifications(notifications.filter(notification => notification.id !== id));
     }
   };
 
-  // Load notifications and scheduler status on component mount
-  useEffect(() => {
-    fetchNotifications();
-    
-  }, []);
+  useEffect(()=>{
+    fetchNotification()
+  },[notifications])
+
 
   // Filter notifications based on selected restaurant and section
   const filteredNotifications = notifications.filter(notification => {
@@ -245,41 +155,11 @@ const WhatsAppMessages = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">WhatsApp Messages</h2>
-         
-        </div>
-        <div className="flex items-center space-x-3">
-          {schedulerStatus && (
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">{schedulerStatus.totalJobs || 0}</span> scheduled jobs
-            </div>
-          )}
-          <Button icon={<Plus size={16} />} onClick={() => setShowCreateForm(true)}>
-            Create Message
-          </Button>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900">WhatsApp Messages</h2>
+        <Button icon={<Plus size={16} />} onClick={() => setShowCreateForm(true)}>
+          Create Message
+        </Button>
       </div>
-
-      {/* Scheduler Status Card */}
-      {schedulerStatus && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-blue-900">Backend Scheduler Status</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  {schedulerStatus.totalJobs} job(s) currently scheduled and running on the server
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-green-700 font-medium">Active</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Filters */}
       <Card className="bg-white shadow-sm">
@@ -389,25 +269,6 @@ const WhatsAppMessages = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <MapPin size={16} className="inline mr-1" />
-                      Canadian Time Zone
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.timeZone}
-                      onChange={(e) => setFormData({ ...formData, timeZone: e.target.value })}
-                      required
-                    >
-                      {CANADIAN_TIME_ZONES.map(tz => (
-                        <option key={tz.value} value={tz.value}>
-                          {tz.label} ({tz.offset})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Frequency
                     </label>
                     <select
@@ -423,7 +284,7 @@ const WhatsAppMessages = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Time ({CANADIAN_TIME_ZONES.find(tz => tz.value === formData.timeZone)?.label})
+                      Time
                     </label>
                     <input
                       type="time"
@@ -466,7 +327,6 @@ const WhatsAppMessages = () => {
                 <div className="space-y-4">
                   {restaurantNotifications.map(notification => {
                     const section = sections.find(s => s.id === notification.sectionId);
-                    const timeZoneInfo = CANADIAN_TIME_ZONES.find(tz => tz.value === (notification.timeZone || 'America/Toronto'));
                     
                     return (
                       <div 
@@ -478,34 +338,25 @@ const WhatsAppMessages = () => {
                             <MessageSquare size={20} className="text-primary-600" />
                           </div>
                           
-                          <div className="flex-1">
+                          <div>
                             <div className="flex items-center space-x-2">
                               <h3 className="font-medium text-gray-900">
                                 {section?.name}
                               </h3>
-                              {/* <Badge variant="success">
-                                Backend Scheduled
-                              </Badge> */}
+                              <Badge variant={notification.isActive ? 'success' : 'outline'}>
+                                {notification.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
                             </div>
                             
-                            <div className="mt-1 space-y-1 text-sm text-gray-500">
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center">
-                                  <Calendar size={14} className="mr-1" />
-                                  <span className="capitalize">{notification.frequency}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <Clock size={14} className="mr-1" />
-                                  <span>{notification.time}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MapPin size={14} className="mr-1" />
-                                  <span>{timeZoneInfo?.label || 'Eastern Time'}</span>
-                                </div>
+                            <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <Calendar size={14} className="mr-1" />
+                                <span className="capitalize">{notification.frequency}</span>
                               </div>
-                              {/* <div className="text-xs text-gray-400">
-                                Next trigger: {formatNextTriggerTime(notification)}
-                              </div> */}
+                              <div className="flex items-center">
+                                <Clock size={14} className="mr-1" />
+                                <span>{notification.time}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -514,12 +365,11 @@ const WhatsAppMessages = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => triggerNotificationManually(notification)}
-                            icon={<PlayCircle size={16} />}
-                            className="text-blue-500 hover:text-blue-600"
-                            title="Trigger now for testing"
+                            onClick={() => toggleNotification(notification.id)}
+                            icon={<Power size={16} />}
+                            className={notification.isActive ? 'text-success' : 'text-gray-400'}
                           >
-                            Send Now
+                            {notification.isActive ? 'Active' : 'Inactive'}
                           </Button>
                           <Button
                             variant="ghost"

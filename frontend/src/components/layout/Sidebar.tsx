@@ -1,3 +1,4 @@
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -5,23 +6,21 @@ import {
   Users, 
   QrCode,
   MessageSquare,
-  X,
-  Shield,
-  Bell
+  Settings,
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
-import { useAuth, PERMISSIONS } from '../../contexts/AuthContext';
-import image from '../../assets/heyopey.jpg'
+import image from '../../assets/logo.jpg'
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, permission: null },
-  { path: '/restaurants', label: 'Restaurants', icon: <Store size={20} />, permission: PERMISSIONS.MANAGE_RESTAURANTS },
-  { path: '/employees', label: 'Employees', icon: <Users size={20} />, permission: PERMISSIONS.MANAGE_EMPLOYEES },
-  { path: '/qr-codes', label: 'QR Codes', icon: <QrCode size={20} />, permission: null },
-  { path: '/whatsapp-messages', label: 'WhatsApp Messages', icon: <MessageSquare size={20} />, permission: PERMISSIONS.SEND_WHATSAPP },
-  // { path: '/report', label: 'Report Notification', icon: <Bell size={20} />, permission: PERMISSIONS.VIEW_REPORTS },
-  // { path: '/accesscontroller', label: 'Access Controller', icon: <Shield size={20} />, permission: PERMISSIONS.ACCESS_CONTROLLER },
+  { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { path: '/restaurants', label: 'Restaurants', icon: <Store size={20} /> },
+  { path: '/employees', label: 'Employees', icon: <Users size={20} /> },
+  { path: '/qr-codes', label: 'QR Codes', icon: <QrCode size={20} /> },
+  { path: '/whatsapp-messages', label: 'WhatsApp Messages', icon: <MessageSquare size={20} /> },
+  { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
 ];
 
 interface SidebarProps {
@@ -29,20 +28,14 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ onClose }: SidebarProps) => {
-  const { hasPermission } = useAuth();
-
-  // Filter navigation items based on user permissions
-  const visibleNavItems = navItems.filter(item => 
-    !item.permission || hasPermission(item.permission)
-  );
-
   return (
     <aside className="h-full bg-white border-r border-gray-200 flex flex-col">
       <div className="flex items-center justify-between px-6 h-16 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="text-white w-[100%] p-1.5 rounded items-center">
-            <img className='w-[70%]' src={image} alt="logo" />
+          <div className="text-white p-1.5 rounded">
+            <img className='w-10' src={image} alt="logo" />
           </div>
+          <span className="text-xl font-bold text-gray-900">HEYOPIE</span>
         </div>
         {onClose && (
           <Button
@@ -56,7 +49,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
       </div>
       
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        {visibleNavItems.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

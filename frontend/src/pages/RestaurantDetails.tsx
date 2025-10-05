@@ -32,8 +32,7 @@ const RestaurantDetails = () => {
     deleteSection,
     addEmployee,
     updateEmployee,
-    deleteEmployee,
-    updateQuestion // Add this function to your context
+    deleteEmployee
   } = useDashboard();
   
   const [showEditForm, setShowEditForm] = useState(false);
@@ -41,7 +40,6 @@ const RestaurantDetails = () => {
   const [showAddEmployeeForm, setShowAddEmployeeForm] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<string | null>(null);
-  const [editingQuestion, setEditingQuestion] = useState<string | null>(null); // New state for editing question
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [questionFormData, setQuestionFormData] = useState<QuestionFormData>({
@@ -103,7 +101,7 @@ const RestaurantDetails = () => {
         ...data,
         restaurantId: id,
         employeeId: `EMP${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-        image: 'https://img.freepik.com/premium-vector/avatar-guest-vector-icon-illustration_1304166-97.jpg?semt=ais_hybrid&w=740'
+        image: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
       };
       addEmployee(newEmployee);
       setShowAddEmployeeForm(false);
@@ -125,7 +123,6 @@ const RestaurantDetails = () => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       deleteEmployee(employeeId);
     }
-
   };
 
   const handleAddQuestion = async () => {
@@ -188,137 +185,17 @@ const RestaurantDetails = () => {
     setShowQuestionForm(false);
   };
 
-  // New function to handle editing questions
-  const handleEditQuestion = async () => {
-    if (!selectedSectionId || !questionFormData.text.trim() || !editingQuestion) return;
-
-    const section = sections.find(s => s.id === selectedSectionId);
+  const handleDeleteQuestion = (sectionId: string, questionId: string) => {
+    const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    const updatedQuestion = {
-      id: editingQuestion,
-      text: questionFormData.text.trim(),
-      sectionId: selectedSectionId,
-      idealAnswer: questionFormData.idealAnswer,
-    };
-
-    try {
-      const resp = await axios.patch(`${import.meta.env.VITE_BACKEND_URL}api/data/updatequestion`, updatedQuestion, {
-        withCredentials: true,
-      });
-      
-      if (resp.data.success) {
-        updateSection(selectedSectionId, {
-          ...section,
-          questions: resp.data.questions,
-        });
-        toast.success('Question Updated!', {
-          position: "bottom-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
-      } else {
-        toast.error(resp.data.message, {
-          position: "bottom-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
-      }
-    } catch (error) {
-      toast.error('Something went wrong', {
-        position: "bottom-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
+    if (window.confirm('Are you sure you want to delete this question?')) {
+      updateSection(sectionId, {
+        ...section,
+        questions: section.questions.filter(q => q.id !== questionId),
       });
     }
-    
-    setQuestionFormData({ text: '', idealAnswer: true });
-    setEditingQuestion(null);
-    setShowQuestionForm(false);
   };
-
-  // Function to start editing a question
-  const startEditingQuestion = (question: any) => {
-    setEditingQuestion(question.id);
-    setQuestionFormData({
-      text: question.text,
-      idealAnswer: question.idealAnswer,
-    });
-    setShowQuestionForm(true);
-  };
-  
-  const handleDeleteQuestion = async (sectionId: string, questionId: string) => {
-  const section = sections.find(s => s.id === sectionId);
-  if (!section) return;
-
-  if (!window.confirm('Are you sure you want to delete this question?')) return;
-
-  try {
-    const resp = await axios.delete(
-      `${import.meta.env.VITE_BACKEND_URL}api/data/deleteQuestion`,
-      {
-        withCredentials: true,
-        data: {
-          data: {
-            sectionId,
-            questionId,
-          }
-        }
-      }
-    );
-
-    if (resp.data.success) {
-      updateSection(sectionId,resp.data.allquestion); // Update the state with new section data
-      toast.success('Question deleted successfully!', {
-        position: 'bottom-right',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: 'light',
-      });
-    } else {
-      toast.error(resp.data.message, {
-        position: 'bottom-right',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: 'light',
-      });
-    }
-  } catch (error) {
-    toast.error('Something went wrong!', {
-      position: 'bottom-right',
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: 'light',
-    });
-  }
-};
   
   if (!restaurant) {
     return (
@@ -480,12 +357,12 @@ const RestaurantDetails = () => {
                             <p className="font-medium text-gray-900">{section.name}</p>
                           </div>
                           <div className="flex items-center space-x-2">
-                            {/* <Button 
+                            <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => setEditingSection(section.id)}
                               icon={<Edit size={16} />}
-                            /> */}
+                            />
                             <Button 
                               variant="ghost" 
                               size="sm"
@@ -604,27 +481,29 @@ const RestaurantDetails = () => {
                       >
                         <div className="flex-1 pr-4">
                           <p className="font-medium text-gray-900">{question.text}</p>
+                          <div className="mt-2 flex items-center space-x-2">
+                            <Badge 
+                              variant={question.idealAnswer ? 'success' : 'danger'}
+                              className="flex items-center space-x-1"
+                            >
+                              {question.idealAnswer ? (
+                                <Check size={14} className="mr-1" />
+                              ) : (
+                                <AlertTriangle size={14} className="mr-1" />
+                              )}
+                              <span>Passes when answer is {question.idealAnswer ? '"Yes"' : '"No"'}</span>
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditingQuestion(question)}
-                            icon={<Edit size={16} />}
-                            className="text-primary hover:text-primary"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteQuestion(selectedSectionId, question.id)}
-                            icon={<Trash2 size={16} />}
-                            className="text-danger hover:text-danger"
-                          >
-                            Delete
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteQuestion(selectedSectionId, question.id)}
+                          icon={<Trash2 size={16} />}
+                          className="text-danger hover:text-danger"
+                        >
+                          Delete
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -680,32 +559,22 @@ const RestaurantDetails = () => {
         </>
       )}
 
-      {/* Add/Edit Question Form */}
+      {/* Add Question Form */}
       {showQuestionForm && selectedSectionId && (
         <>
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 transition-opacity z-40"
-            onClick={() => {
-              setShowQuestionForm(false);
-              setEditingQuestion(null);
-              setQuestionFormData({ text: '', idealAnswer: true });
-            }}
+            onClick={() => setShowQuestionForm(false)}
           />
           <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50">
             <div className="h-full flex flex-col">
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {editingQuestion ? 'Edit Inspection Point' : 'Add Inspection Point'}
-                </h2>
+                <h2 className="text-xl font-semibold text-gray-900">Add Inspection Point</h2>
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   className="text-gray-500"
-                  onClick={() => {
-                    setShowQuestionForm(false);
-                    setEditingQuestion(null);
-                    setQuestionFormData({ text: '', idealAnswer: true });
-                  }}
+                  onClick={() => setShowQuestionForm(false)}
                   icon={<X size={16} />}
                 />
               </div>
@@ -761,18 +630,11 @@ const RestaurantDetails = () => {
               
               <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <div className="flex justify-end space-x-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowQuestionForm(false);
-                      setEditingQuestion(null);
-                      setQuestionFormData({ text: '', idealAnswer: true });
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => setShowQuestionForm(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={editingQuestion ? handleEditQuestion : handleAddQuestion}>
-                    {editingQuestion ? 'Update Question' : 'Add Question'}
+                  <Button onClick={handleAddQuestion}>
+                    Add Question
                   </Button>
                 </div>
               </div>

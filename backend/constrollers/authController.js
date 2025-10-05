@@ -55,6 +55,7 @@ try {
         })
     }
     const exisitingUser = await User.findOne({email}).select('+password')
+    console.log(exisitingUser)
     if(!exisitingUser){
         return res.status(401).json({
             success:false,
@@ -79,7 +80,7 @@ try {
 
     res.cookie('Authorization','Bearer ' + token,
         {expires: new Date(Date.now() + 8*3600000),
-        httpOnly: process.env.NODE_ENV === 'production',
+        httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
     }).json({
