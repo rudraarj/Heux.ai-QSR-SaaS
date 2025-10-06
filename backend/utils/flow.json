@@ -1,0 +1,234 @@
+{
+    "screens": [
+      {
+        "id": "START_SCREEN",
+        "layout": {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "TextHeading",
+                  "text": "👋 Welcome!"
+                },
+                {
+                  "type": "TextBody",
+                  "text": "Let’s go through a quick equipment check to keep things running smoothly."
+                },
+                {
+                  "label": "Start Checkup",
+                  "on-click-action": {
+                    "name": "navigate",
+                    "next": {
+                      "name": "CLEANING_CHECK",
+                      "type": "screen"
+                    }
+                  },
+                  "type": "Footer"
+                }
+              ],
+              "name": "intro",
+              "type": "Form"
+            }
+          ],
+          "type": "SingleColumnLayout"
+        },
+        "title": "Start Equipment Check"
+      },
+      {
+        "id": "CLEANING_CHECK",
+        "layout": {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "TextSubheading",
+                  "text": "🧼 Cleaning Status"
+                },
+                {
+                  "type": "RadioButtonsGroup",
+                  "label": "Has the appliance been cleaned as per the schedule?",
+                  "name": "cleaned_schedule",
+                  "data-source": [
+                    { "id": "yes", "title": "Yes" },
+                    { "id": "no", "title": "No" }
+                  ],
+                  "required": true
+                },
+                {
+                  "input-type": "text",
+                  "label": "Any cleaning notes ?",
+                  "name": "cleaning_notes",
+                  "required": false,
+                  "type": "TextInput"
+                },
+                {
+                  "label": "Next",
+                  "on-click-action": {
+                    "name": "navigate",
+                    "next": {
+                      "name": "NOISE_CHECK",
+                      "type": "screen"
+                    },
+                    "payload": {
+                      "cleaned_schedule": "${form.cleaned_schedule}",
+                      "cleaning_notes": "${form.cleaning_notes}"
+                    }
+                  },
+                  "type": "Footer"
+                }
+              ],
+              "name": "cleaning_form",
+              "type": "Form"
+            }
+          ],
+          "type": "SingleColumnLayout"
+        },
+        "title": "Cleaning Check"
+      },
+      {
+        "id": "NOISE_CHECK",
+        "layout": {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "TextSubheading",
+                  "text": "🔊 Noise Check"
+                },
+                {
+                  "type": "RadioButtonsGroup",
+                  "label": "Is the appliance making any unusual sounds?",
+                  "name": "noise_status",
+                  "data-source": [
+                    { "id": "yes", "title": "Yes" },
+                    { "id": "no", "title": "No" }
+                  ],
+                  "required": true
+                },
+                {
+                  "input-type": "text",
+                  "label": "Any noise notes ?",
+                  "name": "noise_notes",
+                  "required": false,
+                  "type": "TextInput"
+                },
+                {
+                  "label": "Next",
+                  "on-click-action": {
+                    "name": "navigate",
+                    "next": {
+                      "name": "TEMP_CHECK",
+                      "type": "screen"
+                    },
+                    "payload": {
+                      "noise_status": "${form.noise_status}",
+                      "noise_notes": "${form.noise_notes}",
+                      "cleaned_schedule": "${data.cleaned_schedule}",
+                      "cleaning_notes": "${data.cleaning_notes}"
+                    }
+                  },
+                  "type": "Footer"
+                }
+              ],
+              "name": "noise_form",
+              "type": "Form"
+            }
+          ],
+          "type": "SingleColumnLayout"
+        },
+        "title": "Sound Check"
+      },
+      {
+        "id": "TEMP_CHECK",
+        "layout": {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "TextSubheading",
+                  "text": "🔥 Overheating Check"
+                },
+                {
+                  "type": "RadioButtonsGroup",
+                  "label": "Is the appliance overheating?",
+                  "name": "overheat_status",
+                  "data-source": [
+                    { "id": "yes", "title": "Yes" },
+                    { "id": "no", "title": "No" }
+                  ],
+                  "required": true
+                },
+                {
+                  "input-type": "text",
+                  "label": "Any notes ?",
+                  "name": "temp_notes",
+                  "required": false,
+                  "type": "TextInput"
+                },
+                {
+                  "label": "Continue",
+                  "on-click-action": {
+                    "name": "navigate",
+                    "next": {
+                      "name": "SUMMARY_SCREEN",
+                      "type": "screen"
+                    },
+                    "payload": {
+                      "overheat_status": "${form.overheat_status}",
+                      "temp_notes": "${form.temp_notes}",
+                      "noise_status": "${data.noise_status}",
+                      "noise_notes": "${data.noise_notes}",
+                      "cleaned_schedule": "${data.cleaned_schedule}",
+                      "cleaning_notes": "${data.cleaning_notes}"
+                    }
+                  },
+                  "type": "Footer"
+                }
+              ],
+              "name": "overheat_form",
+              "type": "Form"
+            }
+          ],
+          "type": "SingleColumnLayout"
+        },
+        "title": "Temperature Check"
+      },
+      {
+        "id": "SUMMARY_SCREEN",
+        "layout": {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "TextBody",
+                  "text": "✅ All done!\nThanks for completing the equipment check. Your input helps us keep everything running smoothly."
+                },
+                {
+                  "label": "Finish",
+                  "on-click-action": {
+                    "name": "complete",
+                    "payload": {
+                      "overheat_status": "${data.overheat_status}",
+                      "temp_notes": "${data.temp_notes}",
+                      "noise_status": "${data.noise_status}",
+                      "noise_notes": "${data.noise_notes}",
+                      "cleaned_schedule": "${data.cleaned_schedule}",
+                      "cleaning_notes": "${data.cleaning_notes}"
+                    }
+                  },
+                  "type": "Footer"
+                }
+              ],
+              "name": "summary_form",
+              "type": "Form"
+            }
+          ],
+          "type": "SingleColumnLayout"
+        },
+        "terminal": true,
+        "title": "Summary"
+      }
+    ],
+    "version": "7.0"
+  }
+  
