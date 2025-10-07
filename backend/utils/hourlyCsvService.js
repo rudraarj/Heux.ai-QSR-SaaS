@@ -282,7 +282,9 @@ class NotificationSchedulerService {
                     success: true,
                     ...csvResult,
                     recordCount: 0,
-                    isEmpty: true
+                    isEmpty: true,
+                    passedCount: 0,
+                    attentionCount: 0
                 };
             }
 
@@ -333,10 +335,16 @@ class NotificationSchedulerService {
                 notification
             );
             
+            // Calculate status counts
+            const passedCount = inspections.filter(i => i.status === 'passed').length;
+            const attentionCount = inspections.filter(i => i.status === 'attention').length;
+            
             return {
                 success: true,
                 ...csvResult,
-                recordCount: inspections.length
+                recordCount: inspections.length,
+                passedCount,
+                attentionCount
             };
 
         } catch (error) {

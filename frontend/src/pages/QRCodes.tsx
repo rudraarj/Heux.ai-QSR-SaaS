@@ -281,68 +281,84 @@ const QRCodes = () => {
   };
 
   // New function to download all QR codes as PDF for a specific restaurant
-  const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
-    setIsDownloadingPDF(true);
+const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
+  setIsDownloadingPDF(true);
+  
+  try {
+    const restaurant = restaurants.find(r => r.id === restaurantId);
+    if (!restaurant) return;
+
+    // Get sections for this specific restaurant
+    const restaurantSections = sections.filter(s => s.restaurantId === restaurantId);
     
-    try {
-      const restaurant = restaurants.find(r => r.id === restaurantId);
-      if (!restaurant) return;
-
-      // Get sections for this specific restaurant
-      const restaurantSections = sections.filter(s => s.restaurantId === restaurantId);
-      
-      if (restaurantSections.length === 0) {
-        alert('No QR codes found for this restaurant.');
-        return;
-      }
-
-      // Wait a bit to ensure QR codes are rendered
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Dynamically import jsPDF
-      const { jsPDF } = await import('jspdf');
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [480, 680]
-      });
-      
-      let isFirstPage = true;
-      
-      // Process each section for this restaurant
-      for (const section of restaurantSections) {
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-        
-        // Create a temporary canvas for this QR code
-        const tempCanvas = document.createElement('canvas');
-        
-        // Wait for QR code generation
-        const imageData = await createQRTemplate(section.id, tempCanvas);
-        
-        if (imageData) {
-          // Add the image to PDF
-          pdf.addImage(imageData, 'PNG', 0, 0, 480, 680);
-        }
-        
-        isFirstPage = false;
-      }
-      
-      // Generate filename for specific restaurant
-      const filename = `QR_Codes_${restaurant.name.replace(/\s+/g, '_')}.pdf`;
-      
-      // Save the PDF
-      pdf.save(filename);
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
-    } finally {
-      setIsDownloadingPDF(false);
+    if (restaurantSections.length === 0) {
+      alert('No QR codes found for this restaurant.');
+      return;
     }
-  };
+
+    // Wait a bit to ensure QR codes are rendered
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Dynamically import jsPDF
+    const { jsPDF } = await import('jspdf');
+    
+    // Configuration for grid layout
+    const qrWidth = 480;  // Individual QR code width
+    const qrHeight = 680; // Individual QR code height
+    const cols = 2; // Number of columns
+    const margin = 20; // Margin between QR codes
+    
+    // Calculate rows needed
+    const rows = Math.ceil(restaurantSections.length / cols);
+    
+    // Calculate page dimensions
+    const pageWidth = (qrWidth * cols) + (margin * (cols + 1));
+    const pageHeight = (qrHeight * rows) + (margin * (rows + 1));
+    
+    // Create PDF with custom dimensions
+    const pdf = new jsPDF({
+      orientation: pageWidth > pageHeight ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [pageWidth, pageHeight]
+    });
+    
+    // Process each section
+    for (let i = 0; i < restaurantSections.length; i++) {
+      const section = restaurantSections[i];
+      
+      // Calculate position in grid
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      
+      const x = margin + (col * (qrWidth + margin));
+      const y = margin + (row * (qrHeight + margin));
+      
+      // Create a temporary canvas for this QR code
+      const tempCanvas = document.createElement('canvas');
+      
+      // Wait for QR code generation
+      const imageData = await createQRTemplate(section.id, tempCanvas);
+      
+      if (imageData) {
+        // Add the image to PDF at calculated position
+        pdf.addImage(imageData, 'PNG', x, y, qrWidth, qrHeight);
+      }
+    }
+    
+    // Generate filename for specific restaurant
+    const filename = `QR_Codes_${restaurant.name.replace(/\s+/g, '_')}.pdf`;
+    
+    // Save the PDF
+    pdf.save(filename);
+    
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    setIsDownloadingPDF(false);
+  }
+};
+
 
   // Template that exactly matches the PDF design - Updated with image support
   const downloadQRCodeWithTemplate = async (sectionId: string) => {

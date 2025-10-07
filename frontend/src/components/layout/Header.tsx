@@ -28,10 +28,10 @@ export const Header = () => {
           
           <div className="flex items-center space-x-2 sm:space-x-4">
             
-            <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full relative min-h-touch">
+            {/* <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full relative min-h-touch">
               <Bell size={20} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span>
-            </button>
+            </button> */}
             
             <div className="relative">
               <button 

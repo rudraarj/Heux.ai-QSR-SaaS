@@ -5,6 +5,8 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import person from '../../assets/person.jpg'
+import { useAuth } from '../../contexts/AuthContext';
+
 
 interface ProfileMenuProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ interface ProfileMenuProps {
 
 export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
   const [profileImage, setProfileImage] = useState<string>("https://img.freepik.com/premium-vector/avatar-guest-vector-icon-illustration_1304166-97.jpg?semt=ais_hybrid&w=740");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,8 +111,8 @@ export const ProfileMenu = ({ isOpen, onClose }: ProfileMenuProps) => {
               />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Test Account</h3>
-              <p className="text-sm text-gray-500">Administrator</p>
+              <h3 className="font-medium text-gray-900">{user?.email ?? '—'}</h3>
+              <p className="text-sm text-gray-500">{user?.role ?? '—'}</p>
             </div>
           </div>
         </div>
