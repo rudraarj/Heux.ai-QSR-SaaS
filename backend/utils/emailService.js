@@ -214,6 +214,14 @@ class EmailService {
                 <div class="stat-number">${notification.frequency}</div>
                 <div class="stat-label">Frequency</div>
             </div>
+            <div class="stat-card" style="background-color: #10b981;">
+                <div class="stat-number">${reportResult.passedCount ?? 0}</div>
+                <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat-card" style="background-color: #f59e0b;">
+                <div class="stat-number">${reportResult.attentionCount ?? 0}</div>
+                <div class="stat-label">Needs Attention</div>
+            </div>
         </div>
         
         ${reportResult.isEmpty ? `
@@ -253,6 +261,14 @@ class EmailService {
             <div class="info-row">
                 <span class="info-label">Total Records:</span>
                 <span class="info-value">${reportResult.recordCount} inspections</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Passed:</span>
+                <span class="info-value">${reportResult.passedCount ?? 0}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Needs Attention:</span>
+                <span class="info-value">${reportResult.attentionCount ?? 0}</span>
             </div>
         </div>
 

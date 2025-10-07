@@ -19,7 +19,7 @@ const reportsRouter = require('./routers/reportsRouter')
 
 const app = express()
 app.use(cors({
-    origin: process.env.CORS || ['http://localhost:5173/','localhost:5173'], // your frontend origin
+    origin: process.env.CORS || ['http://localhost:5173/','localhost:5173','http://13.127.194.181','13.127.194.181'], // your frontend origin
     credentials: true, // 🔑 allow cookies to be sent
   }))
 app.use(helmet())

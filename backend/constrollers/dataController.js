@@ -54,7 +54,7 @@ exports.inspectionRec = async(req,res) =>{
     try {
         const data = req.body
         console.log(data)
-        const userId = '68d08af540aae80a40183842' //accoutID
+        const userId = '682b867fc4ef1e39fd5acf9c' //accoutID
         const checkboxKey = Object.keys(data).find(key => key.startsWith("section"));
         const optionsArray = data[checkboxKey];
         const chat_id = data.chat_id

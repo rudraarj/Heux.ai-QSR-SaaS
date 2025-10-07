@@ -21,9 +21,7 @@ exports.signupSchema = joi.object({
         .min(6)
         .max(60)
         .required()
-        .email({
-            tlds: { allow: ['com', 'net'] },
-        }),
+        .email(),
     
     phone: joi.string()
         .required()
@@ -50,9 +48,7 @@ exports.signinSchema = joi.object({
         .min(6)
         .max(60)
         .required()
-        .email({
-            tlds:{allow: ['com', 'net']},
-        }),
+        .email(),
     password: joi.string()
             .required()
             .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$'))
@@ -66,9 +62,7 @@ exports.acceptCodeSchema = joi.object({
         .min(6)
         .max(60)
         .required()
-        .email({
-            tlds:{allow: ['com', 'net']},
-        }),
+        .email(),
         providedCode: joi.number().required() 
 })
 
@@ -86,9 +80,7 @@ exports.acceptFPCodeSchema = joi.object({
 		.min(6)
 		.max(60)
 		.required()
-		.email({
-			tlds: { allow: ['com', 'net'] },
-		}),
+		.email(),
 	providedCode: joi.number().required(),
 	newPassword: joi.string()
 		.required()

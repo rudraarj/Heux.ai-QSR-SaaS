@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   Download,
   Filter,
-  Eye,
   ExternalLink,
   Calendar,
   ChevronLeft,
@@ -15,7 +14,7 @@ import { StatCard } from '../components/dashboard/StatCard';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { useDashboard } from '../contexts/DashboardContext';
-import { TimeRange } from '../types';
+ 
 import {
   PieChart,
   Pie,
@@ -39,6 +38,8 @@ const Dashboard = () => {
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [selectedInspection, setSelectedInspection] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'passed' | 'attention'>('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,8 +93,19 @@ const Dashboard = () => {
     const matchesSection = selectedSection === 'all' || inspection.sectionId === selectedSection;
     const matchesEmployee = selectedEmployee === 'all' || inspection.employeeId === selectedEmployee;
     const matchesDate = isWithinDateRange(inspection.date);
-    return matchesRestaurant && matchesSection && matchesEmployee && matchesDate;
+    const matchesStatus = statusFilter === 'all' || inspection.status === statusFilter;
+    return matchesRestaurant && matchesSection && matchesEmployee && matchesDate && matchesStatus;
   });
+
+  const sortedInspections = React.useMemo(() => {
+    const copy = [...filteredInspections];
+    copy.sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+    });
+    return copy;
+  }, [filteredInspections, sortOrder]);
 
   const totalRequested = filteredInspections.length;
   const totalCompleted = filteredInspections.filter(i => i.responses.length > 0).length;
@@ -156,15 +168,15 @@ const Dashboard = () => {
   const spikeChartData = createSpikeChartData();
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredInspections.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedInspections.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentInspections = filteredInspections.slice(startIndex, endIndex);
+  const currentInspections = sortedInspections.slice(startIndex, endIndex);
 
   // Reset pagination when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [selectedRestaurant, selectedSection, selectedEmployee, fromDate, toDate, itemsPerPage]);
+  }, [selectedRestaurant, selectedSection, selectedEmployee, fromDate, toDate, statusFilter, sortOrder, itemsPerPage]);
 
   const getRestaurantName = (restaurantId: string) => {
     const restaurant = restaurants.find(r => r.id === restaurantId);
@@ -197,7 +209,7 @@ const Dashboard = () => {
       const restaurantName = getRestaurantName(section?.restaurantId || '');
       const sectionName = getSectionName(inspection.sectionId);
       const employeeName = getEmployeeName(inspection.employeeId);
-      const inspectionDetails = getInspectionDetails(inspection.id);
+      
 
       const inspectionDate = new Date(inspection.date);
       const sentDate = inspectionDate.toLocaleDateString();
@@ -356,6 +368,7 @@ const Dashboard = () => {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
+            
           </div>
         </CardContent>
       </Card>
@@ -492,6 +505,33 @@ const Dashboard = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Inspection Report</CardTitle>
           <div className="flex items-center space-x-2">
+            {/* Status Filter */}
+            <div className="flex flex-col">
+              {/* <label className="text-sm font-medium text-gray-700 mb-1">Status</label> */}
+              <select
+                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'passed' | 'attention')}
+              >
+                <option value="all">Status</option>
+                <option value="all">All</option>
+                <option value="passed">Passed</option>
+                <option value="attention">Needs Attention</option>
+              </select>
+            </div>
+            {/* Sort Order */}
+            <div className="flex flex-col">
+              {/* <label className="text-sm font-medium text-gray-700 mb-1">Sort</label> */}
+              <select
+                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              >
+                <option value="desc">Sort</option>
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
             <select
               className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               value={itemsPerPage}
@@ -502,7 +542,7 @@ const Dashboard = () => {
               <option value={25}>Show 25</option>
               <option value={50}>Show 50</option>
             </select>
-            <Button variant="outline" size="sm" icon={<Download size={16} />} onClick={handleExportReport} disabled={filteredInspections.length === 0}>
+            <Button variant="outline" size="sm" icon={<Download size={16} />} onClick={handleExportReport} disabled={sortedInspections.length === 0}>
               Export Report
             </Button>
           </div>
@@ -530,9 +570,9 @@ const Dashboard = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Media
-                  </th>
+                  </th> */}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -567,16 +607,7 @@ const Dashboard = () => {
                           {inspection.status === 'passed' ? 'Passed' : 'Needs Attention'}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<Eye size={16} />}
-                          onClick={() => {/* Handle media view */}}
-                        >
-                          View
-                        </Button>
-                      </td>
+                     
                       <td className="px-4 py-4 whitespace-nowrap">
                         <Button
                           variant="ghost"
@@ -598,7 +629,7 @@ const Dashboard = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
               <div className="text-sm text-gray-700">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredInspections.length)} of {filteredInspections.length} results
+                Showing {startIndex + 1} to {Math.min(endIndex, sortedInspections.length)} of {sortedInspections.length} results
               </div>
               <div className="flex items-center space-x-2">
                 <Button
