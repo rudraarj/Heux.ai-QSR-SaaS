@@ -125,6 +125,9 @@ const Dashboard = () => {
     const start = new Date(fromDate);
     const end = new Date(toDate);
     
+    // Ensure we include the end date by setting time to end of day
+    end.setHours(23, 59, 59, 999);
+    
     const current = new Date(start);
     while (current <= end) {
       dates.push(new Date(current));
@@ -141,13 +144,29 @@ const Dashboard = () => {
     
     // Initialize all dates with zero values
     dateRange.forEach(date => {
-      const key = date.toISOString().split('T')[0];
+      // Use local date format to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
       dataMap.set(key, { date: key, passed: 0, attention: 0, total: 0 });
     });
     
+    // Use ALL inspections within the date range, not just filtered ones
+    // This ensures the spike chart shows complete data
+    const inspectionsInDateRange = inspections.filter(inspection => {
+      return isWithinDateRange(inspection.date);
+    });
+    
     // Fill in actual inspection data
-    filteredInspections.forEach(inspection => {
-      const dateKey = new Date(inspection.date).toISOString().split('T')[0];
+    inspectionsInDateRange.forEach(inspection => {
+      // Use local date format to avoid timezone issues
+      const inspectionDate = new Date(inspection.date);
+      const year = inspectionDate.getFullYear();
+      const month = String(inspectionDate.getMonth() + 1).padStart(2, '0');
+      const day = String(inspectionDate.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+      
       const entry = dataMap.get(dateKey);
       
       if (entry) {
@@ -160,9 +179,18 @@ const Dashboard = () => {
       }
     });
     
-    return Array.from(dataMap.values()).sort((a, b) => 
+    const result = Array.from(dataMap.values()).sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
+    
+    // Debug logging to help verify data accuracy
+    console.log('Spike Chart Data:', {
+      totalInspections: inspectionsInDateRange.length,
+      dateRange: { from: fromDate, to: toDate },
+      chartData: result.filter(d => d.total > 0) // Only show dates with data
+    });
+    
+    return result;
   };
 
   const spikeChartData = createSpikeChartData();
@@ -279,7 +307,7 @@ const Dashboard = () => {
       {/* IMPROVED FILTER SECTION */}
       <Card className="bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
             
             {/* Restaurant Filter */}
             <div className="flex flex-col">
@@ -368,7 +396,31 @@ const Dashboard = () => {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
-            
+            {/* Status Filter */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'passed' | 'attention')}
+              >
+                <option value="all">All</option>
+                <option value="passed">Passed</option>
+                <option value="attention">Needs Attention</option>
+              </select>
+            </div>
+            {/* Sort Order */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Sort</label>
+              <select
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              >
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -458,7 +510,6 @@ const Dashboard = () => {
                       return new Date(value).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
-                        timeZone: 'UTC',
                       });
                     }}
                     angle={-45}
@@ -473,7 +524,6 @@ const Dashboard = () => {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
-                        timeZone: 'UTC',
                       });
                     }}
                   />
@@ -505,33 +555,6 @@ const Dashboard = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Inspection Report</CardTitle>
           <div className="flex items-center space-x-2">
-            {/* Status Filter */}
-            <div className="flex flex-col">
-              {/* <label className="text-sm font-medium text-gray-700 mb-1">Status</label> */}
-              <select
-                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'passed' | 'attention')}
-              >
-                <option value="all">Status</option>
-                <option value="all">All</option>
-                <option value="passed">Passed</option>
-                <option value="attention">Needs Attention</option>
-              </select>
-            </div>
-            {/* Sort Order */}
-            <div className="flex flex-col">
-              {/* <label className="text-sm font-medium text-gray-700 mb-1">Sort</label> */}
-              <select
-                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-              >
-                <option value="desc">Sort</option>
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </select>
-            </div>
             <select
               className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               value={itemsPerPage}
