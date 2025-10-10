@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Download, Copy, Check, ChevronDown, ChevronUp, Filter, FileText } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { useDashboard } from '../contexts/DashboardContext';
@@ -65,7 +65,7 @@ const QRCodes = () => {
     try {
       // Load HeyOpey.ai logo image
       const heyOpeyLogo = new Image();
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         heyOpeyLogo.onload = () => resolve();
         heyOpeyLogo.onerror = () => {
           console.warn('HeyOpey logo not found, falling back to text');
@@ -133,9 +133,38 @@ const QRCodes = () => {
       ctx.textAlign = 'center';
       ctx.fillText('Ops. On Demand.', canvas.width / 2, 125);
       
-      // Station name
+      // Station name with text wrapping
       ctx.font = 'bold 22px Arial, sans-serif';
-      ctx.fillText(`${section.name} Station`, canvas.width / 2, 165);
+      const stationText = `${section.name} Station`;
+      const maxWidth = canvas.width - 40; // Leave 20px margin on each side
+      
+      // Function to wrap text
+      const wrapText = (text: string, maxWidth: number, ctx: CanvasRenderingContext2D) => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0];
+        
+        for (let i = 1; i < words.length; i++) {
+          const word = words[i];
+          const width = ctx.measureText(currentLine + ' ' + word).width;
+          if (width < maxWidth) {
+            currentLine += ' ' + word;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        lines.push(currentLine);
+        return lines;
+      };
+      
+      const lines = wrapText(stationText, maxWidth, ctx);
+      const lineHeight = 28;
+      const startY = 165 - ((lines.length - 1) * lineHeight / 2);
+      
+      lines.forEach((line, index) => {
+        ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
+      });
       
       // QR Code section - Enhanced with better error handling
       const qrSvgElement = qrRefs.current[sectionId];
@@ -167,7 +196,7 @@ const QRCodes = () => {
             const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
             const qrUrl = URL.createObjectURL(svgBlob);
             
-            await new Promise<void>((resolve, reject) => {
+            await new Promise<void>((resolve) => {
               qrImg.onload = () => {
                 console.log('QR image loaded successfully for section:', section.name);
                 qrCtx.drawImage(qrImg, 0, 0, qrSize, qrSize);
@@ -188,43 +217,46 @@ const QRCodes = () => {
             
             // Draw the QR code on main canvas
             const qrX = (canvas.width - qrSize) / 2;
-            const qrY = 190;
+            const qrY = startY + (lines.length * lineHeight) + 10; // Position below the text with some spacing
             ctx.drawImage(qrCanvas, qrX, qrY);
           }
         } catch (qrError) {
           console.error('Error processing QR code for section:', section.name, qrError);
           
           // Fallback: Draw placeholder
+          const fallbackQrY = startY + (lines.length * lineHeight) + 10;
           ctx.fillStyle = '#f0f0f0';
-          ctx.fillRect((canvas.width - 290) / 2, 190, 290, 290);
+          ctx.fillRect((canvas.width - 290) / 2, fallbackQrY, 290, 290);
           ctx.fillStyle = '#000000';
           ctx.font = '16px Arial, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('QR Code', canvas.width / 2, 335);
-          ctx.fillText(`${section.name}`, canvas.width / 2, 355);
+          ctx.fillText('QR Code', canvas.width / 2, fallbackQrY + 145);
+          ctx.fillText(`${section.name}`, canvas.width / 2, fallbackQrY + 165);
         }
       } else {
         console.warn('No QR SVG element found for section:', section.name);
         
         // Draw placeholder when QR element is not found
+        const fallbackQrY = startY + (lines.length * lineHeight) + 10;
         ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect((canvas.width - 290) / 2, 190, 290, 290);
+        ctx.fillRect((canvas.width - 290) / 2, fallbackQrY, 290, 290);
         ctx.fillStyle = '#000000';
         ctx.font = '16px Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('QR Code', canvas.width / 2, 335);
-        ctx.fillText(`${section.name}`, canvas.width / 2, 355);
+        ctx.fillText('QR Code', canvas.width / 2, fallbackQrY + 145);
+        ctx.fillText(`${section.name}`, canvas.width / 2, fallbackQrY + 165);
       }
       
-      // "Powered by" text
+      // "Powered by" text - position dynamically based on QR code position
+      const poweredByY = startY + (lines.length * lineHeight) + 10 + 290 + 20; // QR code height + spacing
       ctx.fillStyle = '#000000';
       ctx.font = '18px Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Powered by', canvas.width / 2, 530);
+      ctx.fillText('Powered by', canvas.width / 2, poweredByY);
       
       // Load HUEX logo image
       const huexLogo = new Image();
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         huexLogo.onload = () => resolve();
         huexLogo.onerror = () => {
           console.warn('HUEX logo not found, falling back to text');
@@ -248,7 +280,7 @@ const QRCodes = () => {
         }
         
         const huexX = (canvas.width - huexWidth) / 2;
-        const huexY = 550;
+        const huexY = poweredByY + 20; // Position below "Powered by" text
         
         ctx.drawImage(huexLogo, huexX, huexY, huexWidth, huexHeight);
       } else {
@@ -257,7 +289,7 @@ const QRCodes = () => {
         ctx.fillStyle = '#FF0000';
         
         const centerX = canvas.width / 2;
-        const huexY = 590;
+        const huexY = poweredByY + 20;
         
         ctx.textAlign = 'right';
         ctx.fillText('HU', centerX - 5, huexY);
@@ -296,39 +328,44 @@ const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
       return;
     }
 
-    // Wait a bit to ensure QR codes are rendered
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     // Dynamically import jsPDF
     const { jsPDF } = await import('jspdf');
     
-    // Configuration for grid layout
-    const qrWidth = 480;  // Individual QR code width
-    const qrHeight = 680; // Individual QR code height
+    // A4 size configuration (210mm x 297mm)
+    const a4Width = 210; // mm
+    const a4Height = 297; // mm
     const cols = 2; // Number of columns
-    const margin = 20; // Margin between QR codes
+    const rows = 3; // Number of rows per page
+    const qrPerPage = cols * rows; // 6 QR codes per page
     
-    // Calculate rows needed
-    const rows = Math.ceil(restaurantSections.length / cols);
+    // Calculate QR code dimensions to fit A4 with margins
+    const margin = 10; // mm margin
+    const qrWidth = (a4Width - (margin * (cols + 1))) / cols; // mm
+    const qrHeight = (a4Height - (margin * (rows + 1))) / rows; // mm
     
-    // Calculate page dimensions
-    const pageWidth = (qrWidth * cols) + (margin * (cols + 1));
-    const pageHeight = (qrHeight * rows) + (margin * (rows + 1));
-    
-    // Create PDF with custom dimensions
+    // Create PDF with A4 size
     const pdf = new jsPDF({
-      orientation: pageWidth > pageHeight ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [pageWidth, pageHeight]
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
     });
     
     // Process each section
     for (let i = 0; i < restaurantSections.length; i++) {
       const section = restaurantSections[i];
       
-      // Calculate position in grid
-      const row = Math.floor(i / cols);
-      const col = i % cols;
+      // Calculate which page this QR code should go on
+      const pageIndex = Math.floor(i / qrPerPage);
+      const positionInPage = i % qrPerPage;
+      
+      // Add new page if needed (except for the first page)
+      if (pageIndex > 0 && positionInPage === 0) {
+        pdf.addPage();
+      }
+      
+      // Calculate position in grid for current page
+      const row = Math.floor(positionInPage / cols);
+      const col = positionInPage % cols;
       
       const x = margin + (col * (qrWidth + margin));
       const y = margin + (row * (qrHeight + margin));
@@ -336,7 +373,7 @@ const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
       // Create a temporary canvas for this QR code
       const tempCanvas = document.createElement('canvas');
       
-      // Wait for QR code generation
+      // Generate QR code image data
       const imageData = await createQRTemplate(section.id, tempCanvas);
       
       if (imageData) {
@@ -418,6 +455,22 @@ const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
         width={480}
         height={680}
       />
+      
+      {/* Hidden QR codes container for PDF generation - always rendered */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
+        {sections.map(section => (
+          <div key={`hidden-${section.id}`} className="p-3 bg-white rounded-lg border border-gray-200">
+            <QRCode 
+              ref={(el: any) => {
+                qrRefs.current[section.id] = el;
+              }}
+              value={getQRValue(section.id)} 
+              size={150}
+              style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+            />
+          </div>
+        ))}
+      </div>
       
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">QR Codes</h2>
@@ -529,9 +582,6 @@ const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
                               <div className="flex justify-center mb-4">
                                 <div className="p-3 bg-white rounded-lg border border-gray-200">
                                   <QRCode 
-                                    ref={(el: any) => {
-                                      qrRefs.current[section.id] = el;
-                                    }}
                                     value={getQRValue(section.id)} 
                                     size={150}
                                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
