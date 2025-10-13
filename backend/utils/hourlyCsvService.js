@@ -20,7 +20,6 @@ class NotificationSchedulerService {
         this.initialized = false;
         this.reportsFolder = path.join(__dirname, '../reports');
         this.baseUrl = process.env.BASE_URL || 'http://localhost:8080';
-        this.emailWebhookUrl = process.env.EMAIL_WEBHOOK_URL || 'https://hook.eu2.make.com/email-webhook';
         this.whatsappWebhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://hook.eu2.make.com/99vl1p15i80vmwhoj1sc2pzfafhau6fq';
     }
 
@@ -476,92 +475,40 @@ class NotificationSchedulerService {
                 console.log(`Email service error, trying webhook: ${emailError.message}`);
             }
 
-            // Fallback to webhook if email service fails or is not configured
-            try {
-                const payload = {
-                    notificationName: notification.name,
-                    recipients: recipientEmails,
-                    csvUrl: reportResult.csvUrl,
-                    filename: reportResult.filename,
-                    recordCount: reportResult.recordCount,
-                    generatedAt: new Date().toISOString(),
-                    frequency: notification.frequency,
-                    csvContent: reportResult.csvContent,
-                    dateRange: notification.filters.dateRange,
-                    restaurants: notification.filters.restaurants === 'all' ? 'All Restaurants' : 
-                               `${notification.filters.selectedRestaurants.length} specific restaurants`,
-                    sections: notification.filters.sections === 'all' ? 'All Sections' : 
-                             `${notification.filters.selectedSections.length} specific sections`
-                };
-
-                const response = await axios.post(this.emailWebhookUrl, payload, {
-                    timeout: 30000
-                });
-
-                console.log(`Email notification sent for "${notification.name}" to ${recipientEmails.length} recipients via webhook`);
-                return { success: true, method: 'webhook', response: response.status, recipientCount: recipientEmails.length };
-            } catch (webhookError) {
-                console.error(`Webhook also failed: ${webhookError.message}`);
-                return { 
-                    success: false, 
-                    error: `Both email service and webhook failed. Email: ${emailError?.message || 'unknown'}, Webhook: ${webhookError.message}`,
-                    recipientCount: recipientEmails.length 
-                };
-            }
-
         } catch (error) {
             console.error(`Email notification failed for "${notification.name}":`, error.message);
             return { success: false, error: error.message };
         }
     }
+    // Send email notification
+async sendWhatsappNotification(notification, reportResult, accountId = null) {
+    try {
+        const recipientPhones = await this.getRecipientPhones(notification.recipients, accountId);
+        
+        if (recipientPhones.length === 0) {
+            console.log(`No WhatsApp recipients found for notification "${notification.name}"`);
+            return { success: false, error: 'No WhatsApp recipients found' };
+        }
 
-    // Send WhatsApp notification
-    async sendWhatsappNotification(notification, reportResult, accountId = null) {
-        try {
-            const recipientPhones = await this.getRecipientPhones(notification.recipients, accountId);
+        const message = `📊 *${notification.name}*\n\n` +
+                      `📁 Records: ${reportResult.recordCount}\n` +
+                      `📅 Date Range: Last ${notification.filters.dateRange} days\n` +
+                      `🏪 Restaurants: ${notification.filters.restaurants === 'all' ? 'All' : notification.filters.selectedRestaurants.length + ' specific'}\n` +
+                      `📋 Sections: ${notification.filters.sections === 'all' ? 'All' : notification.filters.selectedSections.length + ' specific'}\n\n` +
+                      `🔗 Download Report: ${reportResult.csvUrl}\n\n` +
+                      `Generated: ${new Date().toLocaleString()}`;
+
+        let successCount = 0;
+        let errors = [];
+
+        // Send webhook for each recipient individually with 2-second delay
+        for (let i = 0; i < recipientPhones.length; i++) {
+            const phone = recipientPhones[i];
             
-            if (recipientPhones.length === 0) {
-                console.log(`No WhatsApp recipients found for notification "${notification.name}"`);
-                return { success: false, error: 'No WhatsApp recipients found' };
-            }
-
-            const message = `📊 *${notification.name}*\n\n` +
-                          `📁 Records: ${reportResult.recordCount}\n` +
-                          `📅 Date Range: Last ${notification.filters.dateRange} days\n` +
-                          `🏪 Restaurants: ${notification.filters.restaurants === 'all' ? 'All' : notification.filters.selectedRestaurants.length + ' specific'}\n` +
-                          `📋 Sections: ${notification.filters.sections === 'all' ? 'All' : notification.filters.selectedSections.length + ' specific'}\n\n` +
-                          `🔗 Download Report: ${reportResult.csvUrl}\n\n` +
-                          `Generated: ${new Date().toLocaleString()}`;
-
-            // Try to send via WhatsApp API first
-            let successCount = 0;
-            let errors = [];
-
-            for (const phone of recipientPhones) {
-                try {
-                    await sendMessage(phone, message);
-                    successCount++;
-                    console.log(`WhatsApp message sent to ${phone}`);
-                } catch (phoneError) {
-                    console.error(`Failed to send WhatsApp message to ${phone}:`, phoneError.message);
-                    errors.push({ phone, error: phoneError.message });
-                }
-            }
-
-            if (successCount > 0) {
-                console.log(`WhatsApp notification sent for "${notification.name}" to ${successCount}/${recipientPhones.length} recipients`);
-                return { 
-                    success: true, 
-                    method: 'whatsapp_api',
-                    recipientCount: successCount,
-                    totalRecipients: recipientPhones.length,
-                    errors: errors.length > 0 ? errors : undefined
-                };
-            } else {
-                // Fallback to webhook if all direct sends fail
+            try {
                 const payload = {
                     notificationName: notification.name,
-                    recipients: recipientPhones,
+                    recipient: phone, // Single recipient
                     csvUrl: reportResult.csvUrl,
                     filename: reportResult.filename,
                     recordCount: reportResult.recordCount,
@@ -569,22 +516,47 @@ class NotificationSchedulerService {
                     frequency: notification.frequency,
                     message: message
                 };
-                console.log(this.whatsappWebhookUrl)
-
 
                 const response = await axios.post(this.whatsappWebhookUrl, payload, {
-                    timeout: 3000
+                    timeout: 5000
                 });
-                console.log(`WhatsApp notification sent for "${notification.name}" to ${recipientPhones.length} recipients via webhook`);
-                return { success: true, method: 'webhook', response: response.status, recipientCount: recipientPhones.length };
+
+                successCount++;
+                console.log(`WhatsApp webhook triggered for ${phone} (${i + 1}/${recipientPhones.length})`);
+
+            } catch (webhookError) {
+                console.error(`Failed to trigger webhook for ${phone}:`, webhookError.message);
+                errors.push({ phone, error: webhookError.message });
             }
 
-        } catch (error) {
-            console.error(`WhatsApp notification failed for "${notification.name}":`, error.message);
-            return { success: false, error: error.message };
+            // Wait 2 seconds before next request (except for the last one)
+            if (i < recipientPhones.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
-    }
 
+        if (successCount > 0) {
+            console.log(`WhatsApp notification sent for "${notification.name}" to ${successCount}/${recipientPhones.length} recipients via webhook`);
+            return { 
+                success: true, 
+                method: 'webhook',
+                recipientCount: successCount,
+                totalRecipients: recipientPhones.length,
+                errors: errors.length > 0 ? errors : undefined
+            };
+        } else {
+            return { 
+                success: false, 
+                error: 'All webhook requests failed',
+                errors: errors
+            };
+        }
+
+    } catch (error) {
+        console.error(`WhatsApp notification failed for "${notification.name}":`, error.message);
+        return { success: false, error: error.message };
+    }
+}
     async generateCsvManually(sendWebhook = false, filters = null) {
     try {
         console.log(`Generating CSV manually (sendWebhook: ${sendWebhook})`);
