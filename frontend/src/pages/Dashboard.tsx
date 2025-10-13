@@ -307,7 +307,7 @@ const Dashboard = () => {
       {/* IMPROVED FILTER SECTION */}
       <Card className="bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
             
             {/* Restaurant Filter */}
             <div className="flex flex-col">
@@ -396,31 +396,7 @@ const Dashboard = () => {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
-            {/* Status Filter */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'passed' | 'attention')}
-              >
-                <option value="all">All</option>
-                <option value="passed">Passed</option>
-                <option value="attention">Needs Attention</option>
-              </select>
-            </div>
-            {/* Sort Order */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Sort</label>
-              <select
-                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-              >
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </select>
-            </div>
+            
           </div>
         </CardContent>
       </Card>
@@ -554,7 +530,33 @@ const Dashboard = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Inspection Report</CardTitle>
+          
           <div className="flex items-center space-x-2">
+            {/* Status Filter */}
+            <div className="flex flex-col">
+              <select
+                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'passed' | 'attention')}
+              >
+                <option value="all">Status</option>
+                <option value="all">All</option>
+                <option value="passed">Passed</option>
+                <option value="attention">Needs Attention</option>
+              </select>
+            </div>
+            {/* Sort Order */}
+            <div className="flex flex-col">
+              <select
+                className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              >
+                <option value="desc">Sort</option>
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
             <select
               className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               value={itemsPerPage}

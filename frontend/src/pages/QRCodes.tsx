@@ -289,7 +289,7 @@ const QRCodes = () => {
         ctx.fillStyle = '#FF0000';
         
         const centerX = canvas.width / 2;
-        const huexY = poweredByY + 20;
+        const huexY = poweredByY + 50;
         
         ctx.textAlign = 'right';
         ctx.fillText('HU', centerX - 5, huexY);
@@ -335,7 +335,7 @@ const downloadRestaurantQRCodesAsPDF = async (restaurantId: string) => {
     const a4Width = 210; // mm
     const a4Height = 297; // mm
     const cols = 2; // Number of columns
-    const rows = 3; // Number of rows per page
+    const rows = 2; // Number of rows per page
     const qrPerPage = cols * rows; // 6 QR codes per page
     
     // Calculate QR code dimensions to fit A4 with margins
