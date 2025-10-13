@@ -19,7 +19,7 @@ class NotificationSchedulerService {
         this.scheduledJobs = new Map();
         this.initialized = false;
         this.reportsFolder = path.join(__dirname, '../reports');
-        this.baseUrl = process.env.BASE_URL || 'http://localhost:8080';
+        this.baseUrl = process.env.BASE_URL;
         this.whatsappWebhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://hook.eu2.make.com/99vl1p15i80vmwhoj1sc2pzfafhau6fq';
     }
 
@@ -598,19 +598,7 @@ async sendWhatsappNotification(notification, reportResult, accountId = null) {
         let webhookSent = false;
         let webhookUrl = null;
 
-        // Send webhook notifications if requested
-        if (sendWebhook) {
-            try {
-                if (defaultNotification.channels.email) {
-                    const emailResult = await this.sendEmailNotification(defaultNotification, reportResult);
-                    webhookSent = emailResult.success;
-                    webhookUrl = this.emailWebhookUrl;
-                }
-            } catch (webhookError) {
-                console.error('Error sending webhook:', webhookError);
-                // Don't fail the entire operation if webhook fails
-            }
-        }
+      
 
         return {
             success: true,
