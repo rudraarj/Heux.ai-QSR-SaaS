@@ -259,16 +259,16 @@ class EmailService {
                 <span class="info-value">${sectionInfo}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Total Records:</span>
-                <span class="info-value">${reportResult.recordCount} inspections</span>
+                <span class="info-label">Needs Attention:</span>
+                <span class="info-value">${reportResult.attentionCount ?? 0}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Passed:</span>
                 <span class="info-value">${reportResult.passedCount ?? 0}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Needs Attention:</span>
-                <span class="info-value">${reportResult.attentionCount ?? 0}</span>
+                <span class="info-label">Total Records:</span>
+                <span class="info-value">${reportResult.recordCount} inspections</span>
             </div>
         </div>
 

@@ -10,7 +10,9 @@ const path = require('path');
 const axios = require('axios');
 const emailService = require('./emailService');
 const { sendMessage } = require('./whatsAppHooks');
-const dotenv = require('dotenv')
+const dotenv = require('dotenv');
+const ExcelJS = require('exceljs');
+const XLSX = require('xlsx');
 dotenv.config()
 
 
@@ -353,99 +355,210 @@ class NotificationSchedulerService {
     }
 
     // Generate CSV content
-    async generateCsvContent(inspections, employeeMap, restaurantMap, sectionMap, questionTextById = {}, sectionRestaurantMap = {}, notification) {
-        try {
-            // Generate filename
-            const now = new Date();
-            const timestamp = now.toISOString().replace(/[:.]/g, '-').split('T').join('_').split('.')[0];
-            const filename = `${(notification?.name || 'report').replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.csv`;
-            const filePath = path.join(this.reportsFolder, filename);
+  async generateCsvContent(inspections, employeeMap, restaurantMap, sectionMap, questionTextById = {}, sectionRestaurantMap = {}, notification) {
+    try {
+        // Generate filename
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-').split('T').join('_').split('.')[0];
+        const baseName = `${(notification?.name || 'report').replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}`;
+        
+        // Generate both CSV and XLSX
+        const csvFilename = `${baseName}.csv`;
+        const xlsxFilename = `${baseName}.xlsx`;
+        const csvFilePath = path.join(this.reportsFolder, csvFilename);
+        const xlsxFilePath = path.join(this.reportsFolder, xlsxFilename);
 
-            // Determine timezone for formatting
-            const timeZone = (notification && notification.timeZone) || process.env.REPORTS_TIMEZONE || 'America/Toronto';
+        // Determine timezone for formatting
+        const timeZone = (notification && notification.timeZone) || process.env.REPORTS_TIMEZONE || 'America/Toronto';
 
-            // CSV headers per request
-            const headers = [
-                'Employee',
-                'SentDate',
-                'SendTime',
-                'DoneDate',
-                'DoneTime',
-                'Restaurant',
-                'Section',
-                'Status',
-                'Responses'
-            ];
+        // CSV headers
+        const headers = [
+            'Employee',
+            'SentDate',
+            'SendTime',
+            'DoneDate',
+            'DoneTime',
+            'Restaurant',
+            'Section',
+            'Status',
+            'Responses'
+        ];
 
-            // Convert data to CSV format
-            const csvRows = [headers.join(',')];
+        // Prepare data rows
+        const dataRows = [];
+        const csvRows = [headers.join(',')];
 
-            inspections.forEach(inspection => {
-                const employeeName = (employeeMap && employeeMap[inspection.employeeId]) || 'Unknown Employee';
-                const restaurantIdForSection = sectionRestaurantMap && sectionRestaurantMap[inspection.sectionId];
-                const restaurantName = (restaurantMap && restaurantMap[restaurantIdForSection]) || 
-                                     (restaurantMap && restaurantMap[inspection.userId]) || 'Unknown Restaurant';
-                const sectionName = (sectionMap && sectionMap[inspection.sectionId]) || 'Unknown Section';
+        inspections.forEach(inspection => {
+            const employeeName = (employeeMap && employeeMap[inspection.employeeId]) || 'Unknown Employee';
+            const restaurantIdForSection = sectionRestaurantMap && sectionRestaurantMap[inspection.sectionId];
+            const restaurantName = (restaurantMap && restaurantMap[restaurantIdForSection]) || 
+                                 (restaurantMap && restaurantMap[inspection.userId]) || 'Unknown Restaurant';
+            const sectionName = (sectionMap && sectionMap[inspection.sectionId]) || 'Unknown Section';
 
-                const sentAt = inspection.createdAt ? new Date(inspection.createdAt) : null;
-                const doneAt = inspection.date ? new Date(inspection.date) : (inspection.updatedAt ? new Date(inspection.updatedAt) : null);
+            const sentAt = inspection.createdAt ? new Date(inspection.createdAt) : null;
+            const doneAt = inspection.date ? new Date(inspection.date) : (inspection.updatedAt ? new Date(inspection.updatedAt) : null);
 
-                const { date: sentDate, time: sentTime } = this.formatDateTimeParts(sentAt, timeZone);
-                const { date: doneDate, time: doneTime } = this.formatDateTimeParts(doneAt, timeZone);
+            const { date: sentDate, time: sentTime } = this.formatDateTimeParts(sentAt, timeZone);
+            const { date: doneDate, time: doneTime } = this.formatDateTimeParts(doneAt, timeZone);
 
-                // Build human-readable responses with question texts
-                let responsesText = '';
-                if (Array.isArray(inspection.responses) && inspection.responses.length > 0) {
-                    const parts = inspection.responses.map(r => {
-                        const qText = (questionTextById && questionTextById[r.questionId]) || `Question ${r.questionId}`;
-                        const status = r.passed === true ? 'Passed' : r.passed === false ? 'Failed' : 'N/A';
-                        const comment = r.comment ? ` (${String(r.comment).replace(/\s+/g, ' ').trim()})` : '';
-                        return `${qText}: ${status}${comment}`;
-                    });
-                    responsesText = parts.join(' | ');
-                }
+            // Normalize status text
+            let statusText = (inspection.status || 'Unknown').toLowerCase();
+            if (statusText === 'passed') {
+                statusText = 'PASSED';
+            } else if (statusText === 'attention') {
+                statusText = 'NEED ATTENTION';
+            } else {
+                statusText = inspection.status || 'Unknown';
+            }
 
-                const row = {
-                    Employee: employeeName,
-                    SentDate: sentDate,
-                    SendTime: sentTime,
-                    DoneDate: doneDate,
-                    DoneTime: doneTime,
-                    Restaurant: restaurantName,
-                    Section: sectionName,
-                    Status: inspection.status || 'Unknown',
-                    Responses: responsesText
-                };
-
-                const values = headers.map(header => {
-                    const value = row[header] || '';
-                    const escaped = String(value).replace(/"/g, '""');
-                    return `"${escaped}"`;
+            // Build human-readable responses with question texts
+            let responsesText = '';
+            if (Array.isArray(inspection.responses) && inspection.responses.length > 0) {
+                const parts = inspection.responses.map(r => {
+                    const qText = (questionTextById && questionTextById[r.questionId]) || `Question ${r.questionId}`;
+                    const status = r.passed === true ? 'Passed' : r.passed === false ? 'Failed' : 'N/A';
+                    const comment = r.comment ? ` (${String(r.comment).replace(/\s+/g, ' ').trim()})` : '';
+                    return `${qText}: ${status}${comment}`;
                 });
-                csvRows.push(values.join(','));
-            });
+                responsesText = parts.join(' | ');
+            }
 
-            const csvContent = csvRows.join('\n');
-
-            // Write CSV file
-            await fs.writeFile(filePath, csvContent, 'utf8');
-            console.log(`CSV file generated: ${filename}`);
-
-            const csvUrl = `${this.baseUrl}/api/notifications/csv/download/${filename}`;
-
-            return {
-                filePath,
-                filename,
-                csvUrl,
-                csvContent
+            const row = {
+                Employee: employeeName,
+                SentDate: sentDate,
+                SendTime: sentTime,
+                DoneDate: doneDate,
+                DoneTime: doneTime,
+                Restaurant: restaurantName,
+                Section: sectionName,
+                Status: statusText,
+                Responses: responsesText
             };
 
-        } catch (error) {
-            console.error('Error generating CSV content:', error);
-            throw error;
-        }
-    }
+            // Store for Excel generation
+            dataRows.push(row);
 
+            // Generate CSV row
+            const values = headers.map(header => {
+                const value = row[header] || '';
+                const escaped = String(value).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+
+        // Write CSV file
+        await fs.writeFile(csvFilePath, csvContent, 'utf8');
+        console.log(`CSV file generated: ${csvFilename}`);
+
+        // Generate Excel file with colors using ExcelJS
+        await this.generateExcelWithColors(headers, dataRows, xlsxFilePath);
+        console.log(`Excel file generated: ${xlsxFilename}`);
+
+        const csvUrl = `${this.baseUrl}/api/notifications/csv/download/${csvFilename}`;
+        const xlsxUrl = `${this.baseUrl}/api/notifications/csv/download/${xlsxFilename}`;
+
+        return {
+            filePath: csvFilePath,
+            filename: csvFilename,
+            csvUrl,
+            xlsxFilePath,
+            xlsxFilename,
+            xlsxUrl,
+            csvContent
+        };
+
+    } catch (error) {
+        console.error('Error generating CSV content:', error);
+        throw error;
+    }
+}
+
+// Add this new method to generate Excel with colors using ExcelJS
+async generateExcelWithColors(headers, dataRows, xlsxFilePath) {
+    try {
+        // Create a new workbook and worksheet
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Inspection Report');
+
+        // Define columns with headers and widths
+        worksheet.columns = [
+            { header: 'Employee', key: 'Employee', width: 20 },
+            { header: 'SentDate', key: 'SentDate', width: 12 },
+            { header: 'SendTime', key: 'SendTime', width: 10 },
+            { header: 'DoneDate', key: 'DoneDate', width: 12 },
+            { header: 'DoneTime', key: 'DoneTime', width: 10 },
+            { header: 'Restaurant', key: 'Restaurant', width: 20 },
+            { header: 'Section', key: 'Section', width: 25 },
+            { header: 'Status', key: 'Status', width: 18 },
+            { header: 'Responses', key: 'Responses', width: 50 }
+        ];
+
+        // Style the header row
+        worksheet.getRow(1).font = { bold: true, size: 11 };
+        worksheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD3D3D3' } // Light gray
+        };
+        worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Add data rows
+        dataRows.forEach(rowData => {
+            const row = worksheet.addRow(rowData);
+            
+            // Find the Status cell (column H, index 8)
+            const statusCell = row.getCell(8);
+            const statusValue = statusCell.value;
+
+            // Apply color formatting based on status
+            if (statusValue === 'PASSED') {
+                statusCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF90EE90' } // Light green
+                };
+                statusCell.font = {
+                    color: { argb: 'FF006400' }, // Dark green
+                    bold: true
+                };
+                statusCell.alignment = { 
+                    vertical: 'middle', 
+                    horizontal: 'center' 
+                };
+            } else if (statusValue === 'NEED ATTENTION') {
+                statusCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFFCCCB' } // Light red
+                };
+                statusCell.font = {
+                    color: { argb: 'FF8B0000' }, // Dark red
+                    bold: true
+                };
+                statusCell.alignment = { 
+                    vertical: 'middle', 
+                    horizontal: 'center' 
+                };
+            }
+        });
+
+        // Auto-fit rows
+        worksheet.eachRow((row) => {
+            row.height = 15;
+        });
+
+        // Write to file
+        await workbook.xlsx.writeFile(xlsxFilePath);
+        console.log(`Excel file with colors generated successfully: ${xlsxFilePath}`);
+        
+    } catch (error) {
+        console.error('Error generating Excel file with colors:', error);
+        throw error;
+    }
+}
     // Send email notification
     async sendEmailNotification(notification, reportResult, accountId = null) {
         try {
