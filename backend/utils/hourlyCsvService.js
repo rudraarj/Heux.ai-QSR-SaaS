@@ -384,9 +384,10 @@ class NotificationSchedulerService {
             'Responses'
         ];
 
-        // Prepare data rows
+        // Prepare data rows and collect "Need Attention" items
         const dataRows = [];
         const csvRows = [headers.join(',')];
+        const needAttentionItems = [];
 
         inspections.forEach(inspection => {
             const employeeName = (employeeMap && employeeMap[inspection.employeeId]) || 'Unknown Employee';
@@ -413,11 +414,22 @@ class NotificationSchedulerService {
 
             // Build human-readable responses with question texts
             let responsesText = '';
+            const failedItems = [];
+            
             if (Array.isArray(inspection.responses) && inspection.responses.length > 0) {
                 const parts = inspection.responses.map(r => {
                     const qText = (questionTextById && questionTextById[r.questionId]) || `Question ${r.questionId}`;
                     const status = r.passed === true ? 'Passed' : r.passed === false ? 'Failed' : 'N/A';
                     const comment = r.comment ? ` (${String(r.comment).replace(/\s+/g, ' ').trim()})` : '';
+                    
+                    // Collect failed items for "Need Attention" table
+                    if (r.passed === false && statusText === 'NEED ATTENTION') {
+                        failedItems.push({
+                            question: qText,
+                            comment: r.comment ? String(r.comment).trim() : null
+                        });
+                    }
+                    
                     return `${qText}: ${status}${comment}`;
                 });
                 responsesText = parts.join(' | ');
@@ -438,7 +450,30 @@ class NotificationSchedulerService {
             // Store for Excel generation
             dataRows.push(row);
 
-            // Generate CSV row
+            // Collect "Need Attention" items for email table
+            if (statusText === 'NEED ATTENTION' && failedItems.length > 0) {
+                needAttentionItems.push({
+                    employee: employeeName,
+                    restaurant: restaurantName,
+                    section: sectionName,
+                    doneDate: doneDate,
+                    doneTime: doneTime,
+                    failedItems: failedItems
+                });
+            }
+        });
+
+        // Sort dataRows: NEED ATTENTION first, then PASSED, then others
+        dataRows.sort((a, b) => {
+            if (a.Status === 'NEED ATTENTION' && b.Status !== 'NEED ATTENTION') return -1;
+            if (a.Status !== 'NEED ATTENTION' && b.Status === 'NEED ATTENTION') return 1;
+            if (a.Status === 'PASSED' && b.Status !== 'PASSED' && b.Status !== 'NEED ATTENTION') return -1;
+            if (a.Status !== 'PASSED' && b.Status === 'PASSED' && a.Status !== 'NEED ATTENTION') return 1;
+            return 0;
+        });
+
+        // Generate CSV rows (sorted)
+        dataRows.forEach(row => {
             const values = headers.map(header => {
                 const value = row[header] || '';
                 const escaped = String(value).replace(/"/g, '""');
@@ -461,13 +496,11 @@ class NotificationSchedulerService {
         const xlsxUrl = `${this.baseUrl}/api/notifications/csv/download/${xlsxFilename}`;
 
         return {
-            filePath: csvFilePath,
-            filename: csvFilename,
-            csvUrl,
-            xlsxFilePath,
-            xlsxFilename,
-            xlsxUrl,
-            csvContent
+            filePath: xlsxFilePath,
+            filename: xlsxFilename,
+            csvUrl: xlsxUrl,
+            csvContent,
+            needAttentionItems // Return this for email template
         };
 
     } catch (error) {
@@ -476,7 +509,7 @@ class NotificationSchedulerService {
     }
 }
 
-// Add this new method to generate Excel with colors using ExcelJS
+// Generate Excel with colors - entire row colored for NEED ATTENTION
 async generateExcelWithColors(headers, dataRows, xlsxFilePath) {
     try {
         // Create a new workbook and worksheet
@@ -508,40 +541,43 @@ async generateExcelWithColors(headers, dataRows, xlsxFilePath) {
         // Add data rows
         dataRows.forEach(rowData => {
             const row = worksheet.addRow(rowData);
-            
-            // Find the Status cell (column H, index 8)
-            const statusCell = row.getCell(8);
-            const statusValue = statusCell.value;
+            const statusValue = rowData.Status;
 
             // Apply color formatting based on status
-            if (statusValue === 'PASSED') {
-                statusCell.fill = {
+            if (statusValue === 'NEED ATTENTION') {
+                // Color the ENTIRE row red
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFCCCB' } // Light red background
+                    };
+                    cell.font = {
+                        color: { argb: 'FF8B0000' }, // Dark red text
+                        bold: true
+                    };
+                    cell.alignment = { 
+                        vertical: 'middle', 
+                        horizontal: cell.col === 8 ? 'center' : 'left' // Center only Status column
+                    };
+                });
+            } else if (statusValue === 'PASSED') {
+                // Only color the Status cell green for PASSED
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
                     fgColor: { argb: 'FF90EE90' } // Light green
                 };
-                statusCell.font = {
+                cell.font = {
                     color: { argb: 'FF006400' }, // Dark green
                     bold: true
                 };
-                statusCell.alignment = { 
+                cell.alignment = { 
                     vertical: 'middle', 
-                    horizontal: 'center' 
+                    horizontal: cell.col === 8 ? 'center' : 'left' 
                 };
-            } else if (statusValue === 'NEED ATTENTION') {
-                statusCell.fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: 'FFFFCCCB' } // Light red
-                };
-                statusCell.font = {
-                    color: { argb: 'FF8B0000' }, // Dark red
-                    bold: true
-                };
-                statusCell.alignment = { 
-                    vertical: 'middle', 
-                    horizontal: 'center' 
-                };
+            });
             }
         });
 

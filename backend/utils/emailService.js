@@ -69,16 +69,57 @@ class EmailService {
 
     // Generate HTML email template
     generateEmailTemplate(notification, reportResult) {
-        const currentDate = new Date().toLocaleString();
-        const dateRange = notification.filters.dateRange;
-        const restaurantInfo = notification.filters.restaurants === 'all' 
-            ? 'All Restaurants' 
-            : `${notification.filters.selectedRestaurants.length} specific restaurants`;
-        const sectionInfo = notification.filters.sections === 'all' 
-            ? 'All Sections' 
-            : `${notification.filters.selectedSections.length} specific sections`;
+    const currentDate = new Date().toLocaleString();
+    const dateRange = notification.filters.dateRange;
+    const restaurantInfo = notification.filters.restaurants === 'all' 
+        ? 'All Restaurants' 
+        : `${notification.filters.selectedRestaurants.length} specific restaurants`;
+    const sectionInfo = notification.filters.sections === 'all' 
+        ? 'All Sections' 
+        : `${notification.filters.selectedSections.length} specific sections`;
 
-        return `
+    // Generate "Need Attention" table if there are any
+    const needAttentionTable = reportResult.needAttentionItems && reportResult.needAttentionItems.length > 0 ? `
+    <div class="attention-section" style="margin: 30px 0;">
+        <h3 style="color: #dc2626; margin-bottom: 15px;">⚠️ Items Requiring Attention (${reportResult.needAttentionItems.length})</h3>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; background-color: white; border: 1px solid #e5e7eb;">
+                <thead>
+                    <tr style="background-color: #fef2f2; border-bottom: 2px solid #dc2626;">
+                        <th style="padding: 12px 8px; text-align: left; font-size: 14px; color: #991b1b; border: 1px solid #fecaca;">Employee</th>
+                        <th style="padding: 12px 8px; text-align: left; font-size: 14px; color: #991b1b; border: 1px solid #fecaca;">Restaurant</th>
+                        <th style="padding: 12px 8px; text-align: left; font-size: 14px; color: #991b1b; border: 1px solid #fecaca;">Section</th>
+                        <th style="padding: 12px 8px; text-align: left; font-size: 14px; color: #991b1b; border: 1px solid #fecaca;">Done Date</th>
+                        <th style="padding: 12px 8px; text-align: left; font-size: 14px; color: #991b1b; border: 1px solid #fecaca;">Issues</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${reportResult.needAttentionItems.map((item, index) => `
+                    <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#fef2f2'}; border-bottom: 1px solid #fecaca;">
+                        <td style="padding: 10px 8px; font-size: 13px; color: #374151; border: 1px solid #fecaca;">${item.employee}</td>
+                        <td style="padding: 10px 8px; font-size: 13px; color: #374151; border: 1px solid #fecaca;">${item.restaurant}</td>
+                        <td style="padding: 10px 8px; font-size: 13px; color: #374151; border: 1px solid #fecaca;">${item.section}</td>
+                        <td style="padding: 10px 8px; font-size: 13px; color: #374151; border: 1px solid #fecaca; white-space: nowrap;">${item.doneDate} ${item.doneTime}</td>
+                        <td style="padding: 10px 8px; font-size: 13px; color: #991b1b; border: 1px solid #fecaca;">
+                            ${item.failedItems.map(failed => `
+                                <div style="margin-bottom: 5px;">
+                                    <strong style="color: #dc2626;">✗</strong> ${failed.question}
+                                    ${failed.comment ? `<br/><span style="font-size: 12px; color: #6b7280; font-style: italic;">"${failed.comment}"</span>` : ''}
+                                </div>
+                            `).join('')}
+                        </td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <p style="margin-top: 15px; font-size: 13px; color: #6b7280; font-style: italic;">
+            💡 Tip: Please review these items and take necessary corrective actions.
+        </p>
+    </div>
+    ` : '';
+
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,7 +131,7 @@ class EmailService {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 600px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f4f4f4;
@@ -236,6 +277,8 @@ class EmailService {
         </div>
         ` : ''}
 
+        ${needAttentionTable}
+
         <div class="report-info">
             <h3 style="margin-top: 0; color: #3b82f6;">📋 Report Details</h3>
             <div class="info-row">
@@ -275,9 +318,9 @@ class EmailService {
         ${reportResult.filePath ? `
         <div class="download-section">
             <h3 style="margin-top: 0; color: #2d3748;">📁 Download Report</h3>
-            <p>Click the button below to download the complete inspection report in CSV format:</p>
+            <p>Click the button below to download the complete inspection report in Excel format:</p>
             <a href="${reportResult.csvUrl}" class="download-btn">
-                📥 Download CSV Report
+                📥 Download Full Report
             </a>
             <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
                 File: ${reportResult.filename}
@@ -286,7 +329,7 @@ class EmailService {
         ` : `
         <div class="download-section" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
             <h3 style="margin-top: 0; color: #6c757d;">📁 No Report Available</h3>
-            <p style="color: #6c757d;">No CSV file was generated as no inspection data was found for the selected criteria.</p>
+            <p style="color: #6c757d;">No file was generated as no inspection data was found for the selected criteria.</p>
         </div>
         `}
 
@@ -300,8 +343,9 @@ class EmailService {
     </div>
 </body>
 </html>
-        `;
-    }
+    `;
+}
+    
 
     // Send simple text email (fallback)
     async sendSimpleEmail(recipientEmails, subject, text) {
