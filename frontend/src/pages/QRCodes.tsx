@@ -26,15 +26,26 @@ const QRCodes = () => {
     );
   };
 
+  // const getQRValue = (sectionId: string) => {
+  //   const section = sections.find(s => s.id === sectionId);
+  //   const restaurant = restaurants.find(r => r.id === section?.restaurantId);
+  //   return `https://api.whatsapp.com/send?phone=16476912142&text=${
+  //     encodeURIComponent(restaurant?.name || 'Restaurant')
+  //   }+${encodeURIComponent(restaurant?.location || 'location')}+%3A+Start+${
+  //     encodeURIComponent(section?.name || 'Section')
+  //   }+Inspection`;
+  // };
   const getQRValue = (sectionId: string) => {
-    const section = sections.find(s => s.id === sectionId);
-    const restaurant = restaurants.find(r => r.id === section?.restaurantId);
-    return `https://api.whatsapp.com/send?phone=16476912142&text=${
-      encodeURIComponent(restaurant?.name || 'Restaurant')
-    }+${encodeURIComponent(restaurant?.location || 'location')}+%3A+Start+${
-      encodeURIComponent(section?.name || 'Section')
-    }+Inspection`;
-  };
+  const section = sections.find(s => s.id === sectionId);
+  const restaurant = restaurants.find(r => r.id === section?.restaurantId);
+  
+  // Format: restaurantId_location : start-sectionName-inspection
+  const restaurantId = restaurant?.name || 'unknown';
+  const location = restaurant?.location?.toLowerCase().replace(/\s+/g, '-') || 'location';
+  const sectionName = section?.name?.toLowerCase().replace(/\s+/g, '-') || 'section';
+  
+  return `https://api.whatsapp.com/send?phone=16476912142&text=${restaurantId}_${location}+%3A+start-${sectionName}-inspection`;
+};
 
   // Helper function to create a single QR code template
   const createQRTemplate = async (sectionId: string, canvas: HTMLCanvasElement) => {
