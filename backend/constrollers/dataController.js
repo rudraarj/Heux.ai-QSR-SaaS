@@ -18,11 +18,22 @@ exports.getWebhook = (req,res)=>{
     const challenge = req.query['hub.challenge']
     const token = req.query['hub.verify_token']
   
+    console.log('WEBHOOK VERIFIED');
     if (mode && token === process.env.WEBHOOK_VERIFY_TOKEN) {
       res.status(200).send(challenge)
     } else {
       res.sendStatus(403)
     }
+}
+exports.postWebhook = (req,res)=>{
+    const mode = req.query['hub.mode']
+    const challenge = req.query['hub.challenge']
+    const token = req.query['hub.verify_token']
+  
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    console.log(`\n\nWebhook received ${timestamp}\n`);
+    console.log(JSON.stringify(req.body, null, 2));
+    res.status(200).end();
 }
 
 exports.fetchdata = async(req,res)=>{

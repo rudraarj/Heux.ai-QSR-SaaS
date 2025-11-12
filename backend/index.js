@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const express = require('express')
 const dotenv = require('dotenv')
 const helmet = require('helmet')
+const morgan = require('morgan')
 const cors = require('cors')
 const cookiesParser = require('cookie-parser')
 const path = require('path');
@@ -18,6 +19,12 @@ const dataRouter = require('./routers/dataRouter')
 const reportsRouter = require('./routers/reportsRouter')
 
 const app = express()
+if (process.env.NODE_ENV === 'development') {
+      app.use(morgan('dev'));
+    } else {
+      app.use(morgan('combined'));
+    }
+
 app.use(cors({
     origin: process.env.CORS || ['http://localhost:5173/','localhost:5173','http://13.127.194.181','13.127.194.181'], // your frontend origin
     credentials: true, // 🔑 allow cookies to be sent
@@ -77,7 +84,7 @@ app.use('/api/csv/download', express.static(path.join(__dirname, 'inspections'),
 // wss.on('connection', handleConnection);
 app.listen(PORT, async () => {
     console.log(`Localhost running on: http://localhost:${PORT}`);
-    await initializeScheduler();
+    // await initializeScheduler();
     });
 
 process.on('SIGTERM', () => {

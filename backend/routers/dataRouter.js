@@ -7,6 +7,7 @@ const upload = require('../middlewares/multer');
 const router = express.Router();
 
 router.get('/webhook',dataController.getWebhook)
+router.post('/webhook',dataController.postWebhook)
 
 router.get('/dashboard',identifier,dataController.fetchdata)
 router.get('/getnotification',identifier,dataController.getNotifications)
