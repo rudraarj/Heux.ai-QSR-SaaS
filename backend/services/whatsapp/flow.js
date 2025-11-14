@@ -197,7 +197,7 @@ class WhatsAppFlowService {
               flow_id: flowId,
               flow_cta: options.flowCta || "Inspect Now!",
               flow_action_payload: {
-                screen: options.screen || "PAGE_ONE",
+                screen: options.screen || "SCREEN_ONE",
                 data: options.data || { section: section }
               }
             }
