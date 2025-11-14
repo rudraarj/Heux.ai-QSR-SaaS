@@ -42,23 +42,24 @@ exports.postWebhook = async (req, res) => {
         return res.sendStatus(404);
     }
 
-    console.log("body", body)
+    // console.log("body", body)
     
     try {
         const changes = body.entry?.[0]?.changes?.[0];
-        console.log("changes", changes)
+        // console.log("changes", changes)
         const value = changes?.value;
-        console.log("value", value)
+        // console.log("value", value)
         const messages = value?.messages;
-        console.log("messages", messages)
-        const sender = value?.contacts[0];
-        console.log("sender", sender)
-
+        // console.log("messages", messages)
+        
         // Ensure a message exists
         if (!messages || messages.length === 0) {
             return res.sendStatus(200);
         }
-
+        
+        const sender = value?.contacts[0];
+        // console.log("sender", sender)
+        
         const msg = messages[0]; // first message
         const from = msg.from; // sender phone
         const type = msg.type;
