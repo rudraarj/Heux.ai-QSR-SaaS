@@ -183,7 +183,7 @@ class WhatsAppFlowService {
             text: options.headerText || `${restaurantName} ${restaurantLocation} : Start ${section} Inspection`
           },
           body: {
-            text: options.bodyText || `Hey,\n🚨 ${restaurantName} ${restaurantLocation}: Please start the ${section} inspection by clicking the button below. Make sure all SOPs are followed and quality standards are maintained across all units.\n~HeyOpey.ai`
+            text: options.bodyText || `Hey,\n\n🚨 ${restaurantName} ${restaurantLocation}: Please start the ${section} inspection by clicking the button below. Make sure all SOPs are followed and quality standards are maintained across all units.\n\n`
           },
           footer: {
             text: options.footerText || "Powered by HeyOpey.ai"
