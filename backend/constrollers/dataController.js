@@ -42,11 +42,17 @@ exports.postWebhook = async (req, res) => {
         return res.sendStatus(404);
     }
 
+    console.log("body", body)
+    
     try {
         const changes = body.entry?.[0]?.changes?.[0];
+        console.log("changes", changes)
         const value = changes?.value;
+        console.log("value", value)
         const messages = value?.messages;
+        console.log("messages", messages)
         const sender = value?.contacts[0];
+        console.log("sender", sender)
 
         // Ensure a message exists
         if (!messages || messages.length === 0) {

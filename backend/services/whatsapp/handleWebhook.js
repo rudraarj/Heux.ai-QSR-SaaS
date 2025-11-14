@@ -23,15 +23,30 @@ const sendTextMessageResponse = async (res, from, sender, timestamp, text) => {
         return res.status(422)
     }
 
+    if (!text.includes("start-") || !text.includes("-inspection")) {
+        console.log("Not a flow requesting message.")
+        return res.status(422)
+    }
 
     // match text with section name - and if mached then send respective flow to this user.
-    const extractedSectionName = text.split("start-")[1].split("-inspection")[0]
+    // const extractedSectionName = text.split("start-")[1]?.split("-inspection")[0]
+    const extractedSectionName = text.match(/start-(.*)-inspection$/)?.[1];
+    console.log("Section Name :", extractedSectionName)
     if (!extractedSectionName) {
         console.log("Could not extract section name from message body.")
         return res.status(422)
     }
+    
+    const slug = extractedSectionName.toLowerCase().replace(/\s+/g, '-');
+    console.log("Section Name - slug :", slug)
 
-    const section = await sectionModule.findOne({ name: { $regex: `^${extractedSectionName}$`, $options: "i" } });
+    const pattern = slug.replace(/-/g, '[-\\s]?'); 
+    console.log("Section Name - pattern :", pattern)
+    
+    const section = await sectionModule.findOne({
+        name: { $regex: new RegExp(`^${pattern}$`, "i") }
+    });
+
     if (!section) {
         console.log("No Section found.")
         return res.status(422)
