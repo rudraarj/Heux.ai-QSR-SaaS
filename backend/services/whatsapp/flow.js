@@ -206,7 +206,7 @@ class WhatsAppFlowService {
       };
 
       const response = await axios.post(
-        `${GRAPH_API_URL}/${wabaId}/messages`,
+        `${GRAPH_API_URL}/${process.env.PHONE_NUMBER_ID}/messages`,
         payload,
         { headers: this.headers }
       );
