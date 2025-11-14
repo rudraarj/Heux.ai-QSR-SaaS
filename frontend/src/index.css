@@ -66,3 +66,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 48px; /* space for custom arrow */
+  background: url("https://img.icons8.com/?size=100&id=39786&format=png") no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+}

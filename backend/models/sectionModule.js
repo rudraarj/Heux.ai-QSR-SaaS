@@ -29,6 +29,13 @@ const sectionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Name is required!']
   },
+  whatsappFlowId: {
+    type: String
+  },
+  whatsappFlowState: {
+    type: String,
+    enum: ['Draft', 'Published', 'Deprecated']
+  },
   restaurantId: {
     type: String,
     required: [true, 'Restaurant ID is required!']

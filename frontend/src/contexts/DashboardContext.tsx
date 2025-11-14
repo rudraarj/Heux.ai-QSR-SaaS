@@ -293,6 +293,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       toast.error('something want wrong', {
+      // toast.error(error.response.data.message, {
         position: "bottom-right",
         autoClose: 5000,
         hideProgressBar: false,

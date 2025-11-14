@@ -1,4 +1,4 @@
-const {addrestaurantSchema,addrecipientSchema, addsectionSchema, addquestionSchema, updaterecipientSchema, updateQuestionSchema } = require("../middlewares/validator")
+const { addrestaurantSchema, addrecipientSchema, addsectionSchema, addquestionSchema, updaterecipientSchema, updateQuestionSchema } = require("../middlewares/validator")
 const employeesModule = require("../models/employeesModule")
 const inspectionsModule = require("../models/inspectionsModule")
 const notificationModule = require("../models/notificationModule")
@@ -7,61 +7,183 @@ const sectionModule = require("../models/sectionModule")
 const usersModel = require("../models/usersModel")
 // const notificationScheduler = require("../utils/NotificationScheduler")
 const { scheduler: notificationScheduler } = require('../utils/NotificationScheduler');
+const WhatsAppFlowService = require("../services/whatsapp/flow")
+const { sendTextMessageResponse, handleInteractiveFlowResponse } = require("../services/whatsapp/handleWebhook")
+const convertSectionToFlowJson = require('../utils/makeFlowJson')
 const dotenv = require('dotenv')
 dotenv.config()
 
+const whatsAppFlowService = new WhatsAppFlowService(process.env.WHATSAPP_ACCESS_TOKEN_FOR_FLOW)
 
-const axios = require('axios'); 
 
-exports.getWebhook = (req,res)=>{
-    const mode = req.query['hub.mode']
-    const challenge = req.query['hub.challenge']
-    const token = req.query['hub.verify_token']
-  
-    console.log('WEBHOOK VERIFIED');
-    if (mode && token === process.env.WEBHOOK_VERIFY_TOKEN) {
-      res.status(200).send(challenge)
+const axios = require('axios');
+
+exports.getWebhook = (req, res) => {
+    const mode = req.query['hub.mode'];
+    const challenge = req.query['hub.challenge'];
+    const token = req.query['hub.verify_token'];
+
+    console.log('WEBHOOK VERIFY REQUEST RECEIVED');
+
+    if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+        return res.status(200).send(challenge); // must send the raw challenge
     } else {
-      res.sendStatus(403)
+        return res.sendStatus(403);
     }
 }
-exports.postWebhook = (req,res)=>{
-    const mode = req.query['hub.mode']
-    const challenge = req.query['hub.challenge']
-    const token = req.query['hub.verify_token']
-  
-    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-    console.log(`\n\nWebhook received ${timestamp}\n`);
-    console.log(JSON.stringify(req.body, null, 2));
-    res.status(200).end();
+
+
+exports.postWebhook = async (req, res) => {
+    console.log("Webhook message received!");
+    const body = req.body;
+
+    // Safety check
+    if (body?.object !== "whatsapp_business_account") {
+        return res.sendStatus(404);
+    }
+
+    try {
+        const changes = body.entry?.[0]?.changes?.[0];
+        const value = changes?.value;
+        const messages = value?.messages;
+        const sender = value?.contacts[0];
+
+        // Ensure a message exists
+        if (!messages || messages.length === 0) {
+            return res.sendStatus(200);
+        }
+
+        const msg = messages[0]; // first message
+        const from = msg.from; // sender phone
+        const type = msg.type;
+
+        console.log("Message type:", type);
+
+        // -----------------------------------------
+        // TEXT MESSAGE
+        // -----------------------------------------
+        if (type === "text") {
+            const text = msg.text?.body;
+            console.log("Text message:", text);
+
+            // DO ANY ACTION
+            await sendTextMessageResponse(res, from, sender, msg.timestamp, text);
+
+        }
+
+        // -----------------------------------------
+        // IMAGE MESSAGE
+        // -----------------------------------------
+        else if (type === "image") {
+            const imageId = msg.image?.id;
+            console.log("Image received, ID:", imageId);
+
+            // ownload the image or process it
+            // handleImage(imageId, from);
+
+        }
+
+        // -----------------------------------------
+        // AUDIO MESSAGE
+        // -----------------------------------------
+        else if (type === "audio") {
+            const audioId = msg.audio?.id;
+            console.log("Audio received, ID:", audioId);
+
+            // handleAudio(audioId, from);
+        }
+
+        // -----------------------------------------
+        // DOCUMENT MESSAGE
+        // -----------------------------------------
+        else if (type === "document") {
+            const docId = msg.document?.id;
+            const filename = msg.document?.filename;
+            console.log("Document received:", filename, docId);
+
+            // handleDocument(docId, filename, from);
+        }
+
+        // -----------------------------------------
+        // BUTTON OR QUICK REPLY
+        // -----------------------------------------
+        else if (type === "button") {
+            const payload = msg.button?.payload;
+            console.log("Button clicked:", payload);
+
+            // handleButton(payload, from);
+        }
+
+        // -----------------------------------------
+        // INTERACTIVE RESPONSES (LIST/BUTTON)
+        // -----------------------------------------
+        else if (type === "interactive") {
+            const interactiveType = msg.interactive?.type;
+
+            if (interactiveType === "list_reply") {
+                const selection = msg.interactive.list_reply;
+                // console.log("List reply:", selection);
+                // handleListReply(selection.id, selection.title, from);
+            }
+
+            if (interactiveType === "button_reply") {
+                const reply = msg.interactive.button_reply;
+                // console.log("Interactive button:", reply);
+                // handleInteractiveButton(reply.id, reply.title, from);
+            }
+
+            if (interactiveType === "nfm_reply") {
+                const nfm_reply = msg.interactive.nfm_reply;
+                // console.log("Interactive nfm:", reply);
+                await handleInteractiveFlowResponse(res,from, sender, msg.timestamp, nfm_reply.response_json);
+            }
+        }
+
+        // -----------------------------------------
+        // UNKNOWN TYPE
+        // -----------------------------------------
+        else {
+            console.log("Unknown message type:", type);
+        }
+
+        // Always respond 200
+        return res.status(200).end();
+
+    } catch (err) {
+        console.error("Webhook processing error:", err);
+        return res.status(500).end();
+    }
+};
+
+
+
+
+exports.fetchdata = async (req, res) => {
+    const userId = req.userId
+
+    try {
+        const userDetails = await usersModel.findOne({ _id: userId });
+
+        const inspection = await inspectionsModule.find({ restaurantId: { $in: userDetails.restaurantID } })
+        const employees = await employeesModule.find({ restaurantId: { $in: userDetails.restaurantID } })
+        const restaurant = await restaurantModule.find({ id: { $in: userDetails.restaurantID } });
+        const section = await sectionModule.find({ restaurantId: { $in: userDetails.restaurantID } })
+        return res.status(200).send({
+            inspection,
+            employees,
+            restaurant,
+            section
+        });
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            message: 'some thing went wrong in while fetch data',
+            error
+        })
+    }
 }
 
-exports.fetchdata = async(req,res)=>{
-const userId = req.userId
-
-  try {
-   const userDetails = await usersModel.findOne({_id:userId});
-
-   const inspection = await inspectionsModule.find({restaurantId: { $in: userDetails.restaurantID }})
-   const employees = await employeesModule.find({restaurantId: { $in: userDetails.restaurantID }})
-   const restaurant = await restaurantModule.find({id: { $in: userDetails.restaurantID }});
-   const section = await sectionModule.find({restaurantId: { $in: userDetails.restaurantID }})
-   return res.status(200).send({
-    inspection,
-    employees,
-    restaurant,
-    section
-  });
-  } catch (error) {
-    return res.status(400).json({
-        success:false,
-        message:'some thing went wrong in while fetch data',
-        error
-    })
-  }
-}
-
-exports.inspectionRec = async(req,res) =>{
+exports.inspectionRec = async (req, res) => {
     try {
         const data = req.body
         console.log(data)
@@ -70,61 +192,61 @@ exports.inspectionRec = async(req,res) =>{
         const optionsArray = data[checkboxKey];
         const chat_id = data.chat_id
 
-        const employees = await employeesModule.findOne({whatsappNumber: chat_id});
-        if(!employees){
+        const employees = await employeesModule.findOne({ whatsappNumber: chat_id });
+        if (!employees) {
             return res.status(401).json({
-                success:false,
+                success: false,
                 message: "this employee don't exist"
             })
         }
-        const section = await sectionModule.findOne({id: checkboxKey})
-        if(!section){
+        const section = await sectionModule.findOne({ id: checkboxKey })
+        if (!section) {
             return res.status(401).json({
-                success:false,
+                success: false,
                 message: "this section don't exist"
             })
         }
-            // if (!employees.sectionIds.includes(checkboxKey)) {
-            //     return res.status(401).json({
-            //         success: false,
-            //         message: "This employee doesn't fall into this section"
-            //     });
-            // }
+        // if (!employees.sectionIds.includes(checkboxKey)) {
+        //     return res.status(401).json({
+        //         success: false,
+        //         message: "This employee doesn't fall into this section"
+        //     });
+        // }
         const allOptions = section.questions
         const responses = allOptions.map(option => ({
-        questionId: option.id,
-        passed: optionsArray.includes(option.id)
+            questionId: option.id,
+            passed: optionsArray.includes(option.id)
         }));
         const allPassed = responses.every(responses => responses.passed)
         const inspData = new inspectionsModule({
-                 id:`inspection-${Date.now()}`,
-                 userId:userId,
-                 sectionId:checkboxKey,
-                 restaurantId:section.restaurantId,
-                 employeeId:employees.id,
-                 date:Date.now(),
-                 status: allPassed ?'passed':'attention',
-                 responses
-              })
-              await inspData.save();
-              const result = await inspectionsModule.find({userId:userId,})
-              console.log(result)
-              return res.status(201).json({
-                  success:true,
-                  message:'Your inspection has been created',
-                  result
-              })
+            id: `inspection-${Date.now()}`,
+            userId: userId,
+            sectionId: checkboxKey,
+            restaurantId: section.restaurantId,
+            employeeId: employees.id,
+            date: Date.now(),
+            status: allPassed ? 'passed' : 'attention',
+            responses
+        })
+        await inspData.save();
+        const result = await inspectionsModule.find({ userId: userId, })
+        console.log(result)
+        return res.status(201).json({
+            success: true,
+            message: 'Your inspection has been created',
+            result
+        })
 
     } catch (error) {
         return res.status(400).json({
-            success:false,
-            message:"some thing want wrong",
+            success: false,
+            message: "some thing want wrong",
             error
         })
     }
-  }
+}
 
-exports.addInspectionImage = async(req, res) => {
+exports.addInspectionImage = async (req, res) => {
     try {
         const { chat_id, user_input_data } = req.body;
 
@@ -165,13 +287,13 @@ exports.addInspectionImage = async(req, res) => {
         if (!lastInspection.images) {
             lastInspection.images = [];
         }
-console.log(imageUrls)
+        console.log(imageUrls)
         // Add new images to the inspection
         lastInspection.images.push(...imageUrls);
 
         // Save the updated inspection
         const dataimage = await lastInspection.save();
-       console.log(dataimage)
+        console.log(dataimage)
         return res.status(200).json({
             success: true,
             message: "Images added to inspection successfully",
@@ -192,158 +314,187 @@ console.log(imageUrls)
     }
 };
 
-  //updated -acs
+//updated -acs
 exports.addRestaurant = async (req, res) => {
-  try {
-    const { id, name, location } = req.body;
-    const userId = req.accountID;
-    const user = req.userId
-    const role = req.userRole;
-    
-     if (['districtmanager', 'generalmanager'].includes(role.toLowerCase())) {
+    try {
+        const { id, name, location } = req.body;
+        const userId = req.accountID;
+        const user = req.userId
+        const role = req.userRole;
+
+        if (['districtmanager', 'generalmanager'].includes(role.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                message: `${role} are not allowed to create an restaurant`,
+            });
+        }
+        // Use uploaded file path
+        const image = req.file?.path;
+        console.log(userId)
+
+        const { value, error } = addrestaurantSchema.validate({ id, name, location, image });
+        if (error) {
+            return res.status(401).json({
+                success: false,
+                message: error.details[0].message
+            });
+        }
+
+        const existingUser = await restaurantModule.findOne({ id });
+        if (existingUser) {
+            return res.status(201).json({
+                success: false,
+                message: "Restaurant already exists"
+            });
+        }
+
+        const newUser = new restaurantModule({
+            id,
+            userId,
+            name,
+            location,
+            image, // saved path like "uploads/1682392932.jpg"
+        });
+
+        await newUser.save();
+
+        const result = await usersModel.updateMany(
+            { accountID: userId, role: "superadmin" }, // condition
+            { $addToSet: { restaurantID: id } }, // update
+        );
+
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No superadmins found for this accountID",
+            });
+        }
+        const result2 = await usersModel.findOneAndUpdate(
+            { _id: user }, // condition
+            { $addToSet: { restaurantID: id } }, // update
+        );
+
+        if (result2.modifiedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No account find found for this userid",
+            });
+        }
+
+        const userDetails = await usersModel.findOne({ _id: user })
+        // const updateSuperadminRestList
+        const allRestaurant = await restaurantModule.find({ id: { $in: userDetails.restaurantID } });
+        return res.status(201).json({
+            success: true,
+            message: 'Your restaurant has been created',
+            allRestaurant,
+            matchedCount: result.matchedCount,
+            modifiedCount: result.modifiedCount,
+        });
+
+    } catch (error) {
         return res.status(400).json({
-        success: false,
-        message: `${role} are not allowed to create an restaurant`,
-           });
+            success: false,
+            message: 'Something went wrong',
+            error
+        });
     }
-    // Use uploaded file path
-    const image = req.file?.path;
-    console.log(userId)
-
-    const { value, error } = addrestaurantSchema.validate({ id, name, location, image });
-    if (error) {
-      return res.status(401).json({
-        success: false,
-        message: error.details[0].message
-      });
-    }
-
-    const existingUser = await restaurantModule.findOne({ id });
-    if (existingUser) {
-      return res.status(201).json({
-        success: false,
-        message: "Restaurant already exists"
-      });
-    }
-
-    const newUser = new restaurantModule({
-      id,
-      userId,
-      name,
-      location,
-      image, // saved path like "uploads/1682392932.jpg"
-    });
-
-    await newUser.save();
-
-    const result = await usersModel.updateMany(
-      { accountID: userId, role: "superadmin" }, // condition
-      { $addToSet: { restaurantID: id } }, // update
-    );
-
-    if (result.modifiedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No superadmins found for this accountID",
-      });
-    }
-    const result2 = await usersModel.findOneAndUpdate(
-      { _id: user}, // condition
-      { $addToSet: { restaurantID: id } }, // update
-    );
-
-    if (result2.modifiedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No account find found for this userid",
-      });
-    }
-
-    const userDetails = await usersModel.findOne({_id:user})
-    // const updateSuperadminRestList
-    const allRestaurant = await restaurantModule.find({id: { $in: userDetails.restaurantID }});
-    return res.status(201).json({
-      success: true,
-      message: 'Your restaurant has been created',
-      allRestaurant,
-      matchedCount: result.matchedCount,
-      modifiedCount: result.modifiedCount,
-    });
-
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: 'Something went wrong',
-      error
-    });
-  }
 };
 
-exports.addSection = async(req,res)=>{
+exports.addSection = async (req, res) => {
 
-   try {
-    const userId = req.accountID;
-    const { value, error } = addsectionSchema.validate(req.body);
-            if(error){ 
-                return res.status(401).json({
-                       success:false, message: error.details[0].message
-                })
-            }
-            const Id = value.id
-            const existingUser = await sectionModule.findOne({Id})
-     
-            if(existingUser){
-                return res.status(201).json({
-                   success:false,
-                   message:"section already exist"
-                })
-            }
-             const newUser = new sectionModule({
-                id: value.id,
-                name: value.name,
-                userId:userId,
-                restaurantId: value.restaurantId,
-                frequency: value.frequency,
-                questions: value.questions || []
-              })
-             await newUser.save();
-            const userDetails = await usersModel.findOne({accountID:userId})
-             const allSection = await sectionModule.find({restaurantId: { $in: userDetails.restaurantID }})
-                 return res.status(201).json({
-                     success:true,
-                     message:'Your sections has been created',
-                     allSection
-                 })
+    try {
+        const userId = req.accountID;
+        const { value, error } = addsectionSchema.validate(req.body);
+        if (error) {
+            return res.status(401).json({
+                success: false, message: error.details[0].message
+            })
+        }
+        const Id = value.id
+        const existingUser = await sectionModule.findOne({ Id })
+        if (existingUser) {
+            return res.status(201).json({
+                success: false,
+                message: "section already exist"
+            })
+        }
+        // add flow in whatsapp
 
-   } catch (error) {
-    return res.status(400).json({
-        success:false,
-        message:'some thing went wrong',
-        error
-    })
-   }
+        const response = await whatsAppFlowService.createFlow(process.env.WABA_ID, { name: value.name })
+        if (!response.success) {
+            return res.status(response.status).json({
+                success: false,
+                error: response.error,
+                message: response.error.message
+            })
+        }
+
+        const newUser = new sectionModule({
+            id: value.id,
+            name: value.name,
+            userId: userId,
+            restaurantId: value.restaurantId,
+            whatsappFlowId: response.data.id,
+            whatsappFlowState: 'Draft',
+            frequency: value.frequency,
+            questions: value.questions || []
+        })
+        await newUser.save();
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allSection = await sectionModule.find({ restaurantId: { $in: userDetails.restaurantID } })
+        return res.status(201).json({
+            success: true,
+            message: 'Your sections has been created',
+            allSection
+        })
+
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            message: 'some thing went wrong',
+            error
+        })
+    }
 
 }
 
-exports.deleteSection = async (req,res)=>{
+exports.deleteSection = async (req, res) => {
 
-     try {
+    try {
         const { id } = req.body;
         const userId = req.accountID;
 
         // Verify the notification belongs to the user
-        const section = await sectionModule.findOne({id});
+        const section = await sectionModule.findOne({ id });
         if (!section) {
             return res.status(404).json({
                 success: false,
                 message: 'section not found'
             });
         }
-        await sectionModule.findOneAndDelete({ id: id});
+
+        if (section.whatsappFlowId) {
+            let response;
+            if (section.whatsappFlowState === 'Draft') {
+                response = await whatsAppFlowService.deleteFlow(section.whatsappFlowId)
+            } else if (section.whatsappFlowState === 'Published') {
+                response = await whatsAppFlowService.deprecateFlow(section.whatsappFlowId)
+            }
+            if (!response.success) {
+                return res.status(response.status).json({
+                    success: false,
+                    error: response.error,
+                    message: response.error.message
+                })
+            }
+        }
+
+        await sectionModule.findOneAndDelete({ id: id });
 
         // Get remaining notifications
-        const userDetails = await usersModel.findOne({accountID:userId})
-        const allSection = await sectionModule.find({restaurantId: { $in: userDetails.restaurantID }});
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allSection = await sectionModule.find({ restaurantId: { $in: userDetails.restaurantID } });
 
         return res.status(200).json({
             success: true,
@@ -362,123 +513,173 @@ exports.deleteSection = async (req,res)=>{
 
 }
 
-exports.addrecipient = async(req,res)=>{
-  const {id,name,whatsappNumber,employeeId,restaurantId,sectionIds,image} = req.body;
-      try {
+exports.addrecipient = async (req, res) => {
+    const { id, name, whatsappNumber, employeeId, restaurantId, sectionIds, image } = req.body;
+    try {
         const userId = req.accountID;
-          const {error, value} = addrecipientSchema.validate({id,name,whatsappNumber,employeeId,restaurantId,sectionIds,image});
-           
-          if(error){
-              return res.status(401).json({
-                  success:false, message: error.details[0].message
-              })
-          }
-          const existingUser = await employeesModule.findOne({
-              whatsappNumber
-          })
+        const { error, value } = addrecipientSchema.validate({ id, name, whatsappNumber, employeeId, restaurantId, sectionIds, image });
 
-          if(existingUser){
-              return res.status(201).json({
-                  success:false,
-                  message:"User already exist"
-              })
-          }
-        
+        if (error) {
+            return res.status(401).json({
+                success: false, message: error.details[0].message
+            })
+        }
+        const existingUser = await employeesModule.findOne({
+            whatsappNumber
+        })
+
+        if (existingUser) {
+            return res.status(201).json({
+                success: false,
+                message: "User already exist"
+            })
+        }
+
         const newUser = new employeesModule({
-          id,
-          userId:userId,
-          name,
-          whatsappNumber,
-          employeeId,
-          restaurantId,
-          sectionIds,
-          image,
-            })
-            await newUser.save();
-              const userDetails = await usersModel.findOne({accountID:userId})
-            const allemployee = await employeesModule.find({restaurantId: { $in: userDetails.restaurantID }})
-            return res.status(200).json({
-                success:true,
-                message:'Your recipient has been created',
-                allemployee
-            })
-        }catch(error){
-            return res.status(400).json({
-                success:false,
-                message:'some thing went wrong',
-                error
-            })
-        }
-}
-
-exports.addquestions = async(req,res)=>{
-    try {
-        const { id, text, sectionId } = req.body;
-        const {value,error} = addquestionSchema.validate({id,text,sectionId});
-        if(error){ 
-           return res.status(400).json({
-                success:false,
-                message:'some thing went wrong',
-                error
-            })
-        }
-        await sectionModule.findOneAndUpdate(
-            { id: sectionId },
-            { $push: { questions: { id, text, sectionId } } },
-            { new: true }
-        )
-        const section = await sectionModule.findOne({id:sectionId})
-        const questions = section.questions
+            id,
+            userId: userId,
+            name,
+            whatsappNumber,
+            employeeId,
+            restaurantId,
+            sectionIds,
+            image,
+        })
+        await newUser.save();
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allemployee = await employeesModule.find({ restaurantId: { $in: userDetails.restaurantID } })
         return res.status(200).json({
-                success:true,
-                message: 'Question added',
-                questions
+            success: true,
+            message: 'Your recipient has been created',
+            allemployee
         })
-    } catch (error) {
-       return res.status(400).json({
-            success:false,
-            message:'some thing went wrong',
-            error
-        })
-    }
-}
-
-exports.updateEmployee = async(req,res)=>{
-    try {
-    const {id,name,whatsappNumber,restaurantId,sectionIds} = req.body;
-          const {error, value} = updaterecipientSchema.validate({id,name,whatsappNumber,restaurantId,sectionIds});
-           
-          if(error){
-              return res.status(401).json({
-                  success:false, message: error.details[0].message
-              })
-          }
-    const user = await employeesModule.findOneAndUpdate({id:id},
-    {
-        name,
-        whatsappNumber,
-        restaurantId,
-        sectionIds,
-    })
-    return res.status(201).json({
-        success:true,
-        message:'Your employee has been updated',
-        user
-    })
     } catch (error) {
         return res.status(400).json({
-            success:false,
-            message:'some thing went wrong in notification',
+            success: false,
+            message: 'some thing went wrong',
             error
-        })  
+        })
     }
 }
 
-exports.assignEmployeesToRestaurant = async(req,res)=>{
+exports.addquestions = async (req, res) => {
+  try {
+    const { id, text, sectionId } = req.body;
+    const { value, error } = addquestionSchema.validate({ id, text, sectionId });
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        error,
+      });
+    }
+
+    // Step 1: Add question
+    const section = await sectionModule.findOneAndUpdate(
+      { id: sectionId },
+      { $push: { questions: { id, text, sectionId } } },
+      { new: true }
+    );
+
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: 'Section not found',
+      });
+    }
+
+    // Step 2: Convert section questions to flow JSON
+    const flow_json = convertSectionToFlowJson(sectionId, section.name, section.questions);
+
+    // Step 3: Update flow on WhatsApp
+    const response = await whatsAppFlowService.updateFlowJsonDirect(section.whatsappFlowId, flow_json);
+
+    // Step 4: Rollback if WhatsApp update fails
+    if (!response?.success) {
+        // Rollback the question added earlier
+        await sectionModule.findOneAndUpdate(
+            { id: sectionId },
+            { $pull: { questions: { id } } }
+        );
+
+        console.error('WhatsApp Flow update failed:', response);
+
+        return res.status(response.status).json({
+            success: false,
+            error: response.error,
+            message: response.error.message
+        })
+    }
+
+    section.whatsappFlowState = "Draft"
+    await section.save()
+    // after adding any question flow will become draft - so needs to publish it
+    const pubish_response = await whatsAppFlowService.publishFlow(section.whatsappFlowId);
+    if (!pubish_response?.success) {
+        return res.status(pubish_response.status).json({
+            success: false,
+            error: pubish_response.error,
+            message: pubish_response.error.message
+        })
+    }
+
+    section.whatsappFlowState = "Published"
+    await section.save()
+    // ✅ Step 5: Success
+    return res.status(200).json({
+      success: true,
+      message: 'Question added and flow updated successfully',
+      questions: section.questions,
+    });
+
+  } catch (error) {
+    console.error('Error in addquestions:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Something went wrong',
+      error,
+    });
+  }
+};
+
+
+exports.updateEmployee = async (req, res) => {
+    try {
+        const { id, name, whatsappNumber, restaurantId, sectionIds } = req.body;
+        const { error, value } = updaterecipientSchema.validate({ id, name, whatsappNumber, restaurantId, sectionIds });
+
+        if (error) {
+            return res.status(401).json({
+                success: false, message: error.details[0].message
+            })
+        }
+        const user = await employeesModule.findOneAndUpdate({ id: id },
+            {
+                name,
+                whatsappNumber,
+                restaurantId,
+                sectionIds,
+            })
+        return res.status(201).json({
+            success: true,
+            message: 'Your employee has been updated',
+            user
+        })
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            message: 'some thing went wrong in notification',
+            error
+        })
+    }
+}
+
+exports.assignEmployeesToRestaurant = async (req, res) => {
     try {
         const { employeeIds, restaurantId } = req.body;
         const userId = req.accountID;
-        
+
         // Validate input
         if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
             return res.status(400).json({
@@ -486,46 +687,46 @@ exports.assignEmployeesToRestaurant = async(req,res)=>{
                 message: 'Employee IDs array is required and must not be empty'
             });
         }
-        
+
         if (!restaurantId) {
             return res.status(400).json({
                 success: false,
                 message: 'Restaurant ID is required'
             });
         }
-        
+
         // Verify all employees exist and belong to the user
-        const employees = await employeesModule.find({ 
+        const employees = await employeesModule.find({
             id: { $in: employeeIds },
-            userId: userId 
+            userId: userId
         });
-        
+
         if (employees.length !== employeeIds.length) {
             return res.status(400).json({
                 success: false,
                 message: 'Some employees not found or do not belong to you'
             });
         }
-        
+
         // Update all employees with the new restaurant ID
         const updateResult = await employeesModule.updateMany(
             { id: { $in: employeeIds } },
             { $set: { restaurantId: restaurantId } }
         );
-        
+
         // Get updated employees for response
-        const updatedEmployees = await employeesModule.find({ 
+        const updatedEmployees = await employeesModule.find({
             id: { $in: employeeIds },
-            userId: userId 
+            userId: userId
         });
-        
+
         return res.status(200).json({
             success: true,
             message: `${updateResult.modifiedCount} employee(s) assigned to restaurant successfully`,
             updatedEmployees: updatedEmployees,
             modifiedCount: updateResult.modifiedCount
         });
-        
+
     } catch (error) {
         console.error('Error assigning employees to restaurant:', error);
         return res.status(500).json({
@@ -536,25 +737,25 @@ exports.assignEmployeesToRestaurant = async(req,res)=>{
     }
 }
 
-exports.deleteEmployee = async (req,res)=>{
+exports.deleteEmployee = async (req, res) => {
 
     try {
         const { id } = req.body;
-       const userId = req.accountID;
+        const userId = req.accountID;
 
         // Verify the notification belongs to the user
-        const employee = await employeesModule.findOne({id});
+        const employee = await employeesModule.findOne({ id });
         if (!employee) {
             return res.status(404).json({
                 success: false,
                 message: 'employee not found'
             });
         }
-        await employeesModule.findOneAndDelete({ id: id});
+        await employeesModule.findOneAndDelete({ id: id });
 
         // Get remaining notifications
-        const userDetails = await usersModel.findOne({accountID:userId})
-        const allEmployee = await employeesModule.find({restaurantId: { $in: userDetails.restaurantID }});
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allEmployee = await employeesModule.find({ restaurantId: { $in: userDetails.restaurantID } });
 
         return res.status(200).json({
             success: true,
@@ -574,50 +775,94 @@ exports.deleteEmployee = async (req,res)=>{
 }
 
 exports.updatequestion = async (req, res) => {
-     try {
+    try {
         const { id, text, sectionId } = req.body;
-        
-        // Validate the input (assuming you have an updateQuestionSchema)
+
+        // Validate the input
         const { value, error } = updateQuestionSchema.validate({ id, text, sectionId });
         if (error) {
             return res.status(400).json({
                 success: false,
-                message: 'Something went wrong',
+                message: 'Validation failed',
                 error
             });
         }
 
-        // Update the specific question in the questions array
-        const updatedSection = await sectionModule.findOneAndUpdate(
-            { 
-                id: sectionId,
-                "questions.id": id  // Find the section and the specific question
-            },
-            { 
-                $set: { 
-                    "questions.$.text": text  // Update only the text field of the matched question
-                }
-            },
-            { new: true }
-        );
-
-        // Check if the section was found and updated
-        if (!updatedSection) {
+        // Step 1: Get the original question text for potential rollback
+        const section = await sectionModule.findOne({ id: sectionId, "questions.id": id });
+        if (!section) {
             return res.status(404).json({
                 success: false,
                 message: 'Section or question not found'
             });
         }
 
-        const questions = updatedSection.questions;
-        
+        const originalQuestion = section.questions.find(q => q.id === id);
+        const originalText = originalQuestion?.text;
+
+        // Step 2: Update the specific question in the questions array
+        const updatedSection = await sectionModule.findOneAndUpdate(
+            {
+                id: sectionId,
+                "questions.id": id
+            },
+            {
+                $set: {
+                    "questions.$.text": text
+                }
+            },
+            { new: true }
+        );
+
+        // Step 3: Convert section questions to flow JSON
+        const flow_json = convertSectionToFlowJson(sectionId, updatedSection.name, updatedSection.questions);
+
+        // Step 4: Update flow on WhatsApp
+        const response = await whatsAppFlowService.updateFlowJsonDirect(updatedSection.whatsappFlowId, flow_json);
+
+        // Step 5: Rollback if WhatsApp update fails
+        if (!response?.success) {
+            // Rollback the question text to original
+            await sectionModule.findOneAndUpdate(
+                { id: sectionId, "questions.id": id },
+                { $set: { "questions.$.text": originalText } }
+            );
+
+            console.error('WhatsApp Flow update failed:', response);
+
+            return res.status(response.status).json({
+                success: false,
+                error: response.error,
+                message: response.error.message
+            });
+        }
+
+        updatedSection.whatsappFlowState = "Draft";
+        await updatedSection.save();
+
+        // Step 6: Publish the flow
+        const publish_response = await whatsAppFlowService.publishFlow(updatedSection.whatsappFlowId);
+        if (!publish_response?.success) {
+            return res.status(publish_response.status).json({
+                success: false,
+                error: publish_response.error,
+                message: publish_response.error.message
+            });
+        }
+
+        updatedSection.whatsappFlowState = "Published";
+        await updatedSection.save();
+
+        // Step 7: Success
         return res.status(200).json({
             success: true,
-            message: 'Question updated successfully',
-            questions
+            message: 'Question updated and flow published successfully',
+            questions: updatedSection.questions
         });
 
     } catch (error) {
+        console.error('Error in updatequestion:', error);
+
         return res.status(500).json({
             success: false,
             message: 'Something went wrong',
@@ -626,39 +871,93 @@ exports.updatequestion = async (req, res) => {
     }
 };
 
-exports.deleteQuestion = async (req,res)=>{
-const { sectionId, questionId } = req.body.data;
-const userId = req.accountID;
+exports.deleteQuestion = async (req, res) => {
+    const { sectionId, questionId } = req.body.data;
+    const userId = req.accountID;
 
-
-  if (!userId) {
-    return res.status(400).json({ success: false, message: 'Section ID and Question ID are required' });
-  }
-  if (!sectionId || !questionId) {
-    return res.status(400).json({ success: false, message: 'Section ID and Question ID are required' });
-  }
-
-  try {
-    const updatedSection = await sectionModule.findOneAndUpdate(
-      { id: sectionId },
-      { $pull: { questions: { id: questionId } } },
-      { new: true }
-    );
-
-    if (!updatedSection) {
-      return res.status(404).json({ success: false, message: 'Section not found' });
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+    if (!sectionId || !questionId) {
+        return res.status(400).json({ success: false, message: 'Section ID and Question ID are required' });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: 'Question deleted successfully',
-      allquestion: updatedSection,
-    });
-  } catch (err) {
-    console.error('Error deleting question:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
-}
+    try {
+        // Step 1: Get the section and store the question for potential rollback
+        const section = await sectionModule.findOne({ id: sectionId });
+        
+        if (!section) {
+            return res.status(404).json({ success: false, message: 'Section not found' });
+        }
+
+        const deletedQuestion = section.questions.find(q => q.id === questionId);
+        
+        if (!deletedQuestion) {
+            return res.status(404).json({ success: false, message: 'Question not found' });
+        }
+
+        // Step 2: Delete the question from the section
+        const updatedSection = await sectionModule.findOneAndUpdate(
+            { id: sectionId },
+            { $pull: { questions: { id: questionId } } },
+            { new: true }
+        );
+
+        // Step 3: Convert section questions to flow JSON
+        const flow_json = convertSectionToFlowJson(sectionId, updatedSection.name, updatedSection.questions);
+
+        // Step 4: Update flow on WhatsApp
+        const response = await whatsAppFlowService.updateFlowJsonDirect(updatedSection.whatsappFlowId, flow_json);
+
+        // Step 5: Rollback if WhatsApp update fails
+        if (!response?.success) {
+            // Rollback - add the question back
+            await sectionModule.findOneAndUpdate(
+                { id: sectionId },
+                { $push: { questions: deletedQuestion } }
+            );
+
+            console.error('WhatsApp Flow update failed:', response);
+
+            return res.status(response.status).json({
+                success: false,
+                error: response.error,
+                message: response.error.message
+            });
+        }
+
+        updatedSection.whatsappFlowState = "Draft";
+        await updatedSection.save();
+
+        // Step 6: Publish the flow
+        const publish_response = await whatsAppFlowService.publishFlow(updatedSection.whatsappFlowId);
+        if (!publish_response?.success) {
+            return res.status(publish_response.status).json({
+                success: false,
+                error: publish_response.error,
+                message: publish_response.error.message
+            });
+        }
+
+        updatedSection.whatsappFlowState = "Published";
+        await updatedSection.save();
+
+        // Step 7: Success
+        return res.status(200).json({
+            success: true,
+            message: 'Question deleted and flow updated successfully',
+            allquestion: updatedSection,
+        });
+
+    } catch (err) {
+        console.error('Error deleting question:', err);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Something went wrong',
+            error: err 
+        });
+    }
+};
 
 exports.createNotification = async (req, res) => {
     try {
@@ -690,8 +989,8 @@ exports.createNotification = async (req, res) => {
         const notification = await notificationScheduler.addNotification(notificationData);
 
         // Get all notifications for response
-         const userDetails = await usersModel.findOne({accountID:userId})
-        const allNotifications = await notificationModule.find({restaurantId: { $in: userDetails.restaurantID }});
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allNotifications = await notificationModule.find({ restaurantId: { $in: userDetails.restaurantID } });
 
         return res.status(201).json({
             success: true,
@@ -714,8 +1013,8 @@ exports.createNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
     try {
         const userId = req.userId;
-        const userDetails = await usersModel.findOne({_id:userId});
-        const notifications = await notificationModule.find({restaurantId: { $in: userDetails.restaurantID }});
+        const userDetails = await usersModel.findOne({ _id: userId });
+        const notifications = await notificationModule.find({ restaurantId: { $in: userDetails.restaurantID } });
 
         return res.status(200).json({
             success: true,
@@ -750,9 +1049,9 @@ exports.deleteNotification = async (req, res) => {
         await notificationScheduler.deleteNotification(id);
 
         // Get remaining notifications
-      // Get all notifications for response
-         const userDetails = await usersModel.findOne({accountID:userId})
-        const allNotifications = await notificationModule.find({restaurantId: { $in: userDetails.restaurantID }});
+        // Get all notifications for response
+        const userDetails = await usersModel.findOne({ accountID: userId })
+        const allNotifications = await notificationModule.find({ restaurantId: { $in: userDetails.restaurantID } });
 
         return res.status(200).json({
             success: true,
@@ -775,7 +1074,7 @@ exports.deleteNotification = async (req, res) => {
 exports.triggerNotification = async (req, res) => {
     try {
         const { sectionId } = req.body;
-    //    const userId = req.accountID;
+        //    const userId = req.accountID;
 
         // Validate required fields
         if (!sectionId) {
@@ -793,13 +1092,13 @@ exports.triggerNotification = async (req, res) => {
         // Format phone number function
         const formatPhoneNumber = (phoneNumber) => {
             let cleaned = phoneNumber.replace(/\D/g, '');
-            
+
             if (cleaned.startsWith('0')) {
                 cleaned = '91' + cleaned.substring(1);
             } else if (cleaned.length === 10) {
                 cleaned = '91' + cleaned;
             }
-            
+
             return cleaned;
         };
 
@@ -823,7 +1122,7 @@ exports.triggerNotification = async (req, res) => {
         const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL_notification;
         console.log(process.env.WHATSAPP_WEBHOOK_URL_notification)
         const webhookResults = [];
-        
+
         for (const employee of employeeData) {
             try {
                 const webhookPayload = {
@@ -860,10 +1159,10 @@ exports.triggerNotification = async (req, res) => {
                 });
 
                 console.log(`Webhook triggered successfully for ${employee.name} (${employee.phoneNumber})`);
-                
+
                 // Add delay between requests
                 await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced to 2 seconds
-                
+
             } catch (error) {
                 console.error(`Failed to trigger webhook for ${employee.name} (${employee.phoneNumber}):`, {
                     message: error.message,
@@ -871,7 +1170,7 @@ exports.triggerNotification = async (req, res) => {
                     status: error.response?.status,
                     statusText: error.response?.statusText
                 });
-                
+
                 webhookResults.push({
                     phoneNumber: employee.phoneNumber,
                     originalNumber: employee.originalNumber,
@@ -917,7 +1216,7 @@ exports.triggerNotification = async (req, res) => {
 exports.csvNotification = async (req, res) => {
     try {
         console.log('Manual CSV generation triggered via controller');
-        
+
         // Check if notificationScheduler is initialized
         if (!notificationScheduler.initialized) {
             return res.status(500).json({
@@ -936,19 +1235,19 @@ exports.csvNotification = async (req, res) => {
 
         // Generate CSV and get result with URL
         const result = await notificationScheduler.generateInspectionCsv();
-        
+
         if (result.success) {
             let webhookResult = null;
-            
+
             // If webhook should be triggered, send it
             if (triggerWebhook) {
                 try {
                     console.log('Sending CSV to webhook...');
-                    
+
                     // Read the CSV file content
                     const fs = require('fs').promises;
                     let csvContent = '';
-                    
+
                     // Check if filePath exists in result
                     if (result.filePath) {
                         csvContent = await fs.readFile(result.filePath, 'utf8');
@@ -957,11 +1256,11 @@ exports.csvNotification = async (req, res) => {
                     } else {
                         throw new Error('No CSV content available');
                     }
-                    
+
                     // Send to webhook
                     const axios = require('axios');
                     const webhookUrl = 'https://hook.eu2.make.com/u942iqdzwmsy2ihgzc4rfx88xv9f16ak';
-                    
+
                     const webhookPayload = {
                         csvFile: csvContent,
                         filename: result.filename,
@@ -1006,7 +1305,7 @@ exports.csvNotification = async (req, res) => {
                         status: webhookError.response?.status,
                         data: webhookError.response?.data,
                         stack: webhookError.stack
-                    }); 
+                    });
 
                     webhookResult = {
                         success: false,
@@ -1074,7 +1373,7 @@ exports.downloadCsv = async (req, res) => {
     try {
         const filename = req.params.filename;
         console.log(`CSV download requested for: ${filename}`);
-        
+
         // More flexible filename validation to match your generated files
         if (!filename.endsWith('.csv') || !filename.startsWith('inspection_report_')) {
             return res.status(400).json({
@@ -1082,19 +1381,19 @@ exports.downloadCsv = async (req, res) => {
                 message: 'Invalid filename format'
             });
         }
-        
+
         const path = require('path');
         const fs = require('fs');
-        
+
         // Updated path - from controllers folder to inspections folder
         const filePath = path.join(__dirname, '../inspections', filename);
-        
+
         console.log('Looking for file at:', filePath);
-        
+
         // Check if file exists (synchronous check first)
         if (!fs.existsSync(filePath)) {
             console.log('File not found at:', filePath);
-            
+
             // Try to list files in inspections folder for debugging
             const inspectionsFolder = path.join(__dirname, '../inspections');
             try {
@@ -1103,7 +1402,7 @@ exports.downloadCsv = async (req, res) => {
             } catch (dirError) {
                 console.log('Could not read inspections folder:', dirError.message);
             }
-            
+
             return res.status(404).json({
                 success: false,
                 message: 'CSV file not found',
@@ -1111,18 +1410,18 @@ exports.downloadCsv = async (req, res) => {
                 searchPath: filePath
             });
         }
-        
+
         console.log('File found! Preparing download...');
-        
+
         // Set headers for automatic CSV download
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache');
-        
+
         // Create read stream and pipe to response
         const fileStream = fs.createReadStream(filePath);
-        
+
         fileStream.on('error', (error) => {
             console.error('Error reading file:', error);
             if (!res.headersSent) {
@@ -1133,18 +1432,18 @@ exports.downloadCsv = async (req, res) => {
                 });
             }
         });
-        
+
         fileStream.on('open', () => {
             console.log('File stream opened, starting download...');
         });
-        
+
         fileStream.on('end', () => {
             console.log('File download completed successfully');
         });
-        
+
         // Pipe the file to response
         fileStream.pipe(res);
-        
+
     } catch (error) {
         console.error('Error in downloadCsv controller:', error);
         if (!res.headersSent) {
@@ -1160,10 +1459,10 @@ exports.downloadCsv = async (req, res) => {
 exports.getCsvStatus = (req, res) => {
     try {
         console.log('CSV status requested via controller');
-        
+
         // Get scheduler status
         const status = notificationScheduler.getScheduledJobs();
-        
+
         res.status(200).json({
             success: true,
             message: 'CSV service status retrieved successfully',
@@ -1194,13 +1493,13 @@ exports.getCsvStatus = (req, res) => {
 exports.listCsvFiles = async (req, res) => {
     try {
         console.log('CSV file list requested');
-        
+
         const path = require('path');
         const fs = require('fs').promises;
-        
+
         const inspectionsFolder = path.join(__dirname, '../inspections');
         const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
-        
+
         // Check if folder exists
         try {
             await fs.access(inspectionsFolder);
@@ -1212,17 +1511,17 @@ exports.listCsvFiles = async (req, res) => {
                 count: 0
             });
         }
-        
+
         // Read directory contents
         const files = await fs.readdir(inspectionsFolder);
-        
+
         // Filter and process CSV files
         const csvFiles = [];
         for (const file of files) {
             if (file.endsWith('.csv') && file.startsWith('inspection_report_')) {
                 const filePath = path.join(inspectionsFolder, file);
                 const stats = await fs.stat(filePath);
-                
+
                 csvFiles.push({
                     filename: file,
                     url: `${baseUrl}/api/csv/download/${file}`,
@@ -1232,10 +1531,10 @@ exports.listCsvFiles = async (req, res) => {
                 });
             }
         }
-        
+
         // Sort by creation date (newest first)
         csvFiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
+
         res.status(200).json({
             success: true,
             message: `Found ${csvFiles.length} CSV files`,
@@ -1243,7 +1542,7 @@ exports.listCsvFiles = async (req, res) => {
             count: csvFiles.length,
             downloadBaseUrl: `${baseUrl}/api/csv/download/`
         });
-        
+
     } catch (error) {
         console.error('Error listing CSV files:', error);
         res.status(500).json({
